@@ -10,7 +10,7 @@ The current implementation is the first desktop-helper slice. It can:
 - Pair a device and protect request APIs with bearer-token auth.
 - Translate Claude Code hook payloads into the shared request model.
 
-It does not yet include the iPhone app, Apple Watch app, packaged desktop installer, or Codex desktop adapter.
+It does not yet include a standalone Xcode app target, Apple Watch app, packaged desktop installer, or Codex desktop adapter.
 
 ## Run
 
@@ -118,7 +118,7 @@ cd mobile/ios/AgentsInWatchCore
 swift test
 ```
 
-The package currently contains tested models and a helper API client. It does not yet include SwiftUI screens, QR scanning, Keychain token storage, or WatchConnectivity.
+The package currently contains tested models, a helper API client, and a minimal SwiftUI companion interface. It does not yet include a standalone Xcode app target, QR scanning, Keychain token storage, or WatchConnectivity.
 
 ## Safety
 
