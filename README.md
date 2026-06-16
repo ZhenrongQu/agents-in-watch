@@ -109,6 +109,17 @@ scripts/claude-code-hook.js
 
 Claude Code hook configuration will be documented after the hook behavior is verified against a live Claude Code session.
 
+## iPhone Companion Core
+
+The repository now includes a Swift Package for the iPhone companion core:
+
+```bash
+cd mobile/ios/AgentsInWatchCore
+swift test
+```
+
+The package currently contains tested models and a helper API client. It does not yet include SwiftUI screens, QR scanning, Keychain token storage, or WatchConnectivity.
+
 ## Safety
 
 This project is not a remote shell. The helper stores scoped agent requests and responses. It does not expose arbitrary command execution as a default capability.
