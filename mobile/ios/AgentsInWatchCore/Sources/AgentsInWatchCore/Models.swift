@@ -69,7 +69,7 @@ public enum RequestType: String, Decodable, Equatable, Sendable {
     case notification
 }
 
-public enum RequestAction: String, Codable, Equatable, Sendable {
+public enum RequestAction: String, Codable, Equatable, Hashable, Sendable {
     case allow
     case deny
     case pause
