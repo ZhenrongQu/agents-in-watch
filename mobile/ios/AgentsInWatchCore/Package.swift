@@ -16,6 +16,10 @@ let package = Package(
         .library(
             name: "AgentsInWatchMobileUI",
             targets: ["AgentsInWatchMobileUI"]
+        ),
+        .library(
+            name: "AgentsInWatchWatchUI",
+            targets: ["AgentsInWatchWatchUI"]
         )
     ],
     targets: [
@@ -29,6 +33,10 @@ let package = Package(
             name: "AgentsInWatchMobileUI",
             dependencies: ["AgentsInWatchCore"]
         ),
+        .target(
+            name: "AgentsInWatchWatchUI",
+            dependencies: ["AgentsInWatchCore"]
+        ),
         .testTarget(
             name: "AgentsInWatchCoreTests",
             dependencies: ["AgentsInWatchCore"]
@@ -36,6 +44,10 @@ let package = Package(
         .testTarget(
             name: "AgentsInWatchMobileUITests",
             dependencies: ["AgentsInWatchMobileUI"]
+        ),
+        .testTarget(
+            name: "AgentsInWatchWatchUITests",
+            dependencies: ["AgentsInWatchWatchUI"]
         )
     ]
 )
