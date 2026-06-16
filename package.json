@@ -1,0 +1,14 @@
+{
+  "name": "agents-in-watch",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local-first Apple Watch companion for AI agent approvals.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/helper/server.js",
+    "test": "node --test"
+  }
+}
