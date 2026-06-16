@@ -25,6 +25,7 @@ public final class CompanionViewModel: ObservableObject {
     private let notificationBridge: any NotificationBridge
     private let clientFactory: @Sendable (URL) -> any HelperClientProtocol
     private var client: (any HelperClientProtocol)?
+    private var notifiedRequestIds: Set<String>
 
     public init(
         helperURLText: String = "http://127.0.0.1:42731",
@@ -48,6 +49,7 @@ public final class CompanionViewModel: ObservableObject {
         self.errorMessage = nil
         self.watchStatus = watchBridge.status
         self.notificationStatus = notificationBridge.status
+        self.notifiedRequestIds = []
 
         do {
             if let credential = try credentialStore.load() {
@@ -152,6 +154,7 @@ public final class CompanionViewModel: ObservableObject {
         phase = .disconnected
         pendingRequests = []
         errorMessage = nil
+        notifiedRequestIds.removeAll()
         try? credentialStore.clear()
         watchBridge.publish([])
     }
@@ -161,6 +164,7 @@ public final class CompanionViewModel: ObservableObject {
             throw CompanionViewModelError.notPaired
         }
         pendingRequests = try await activeClient.listPendingRequests()
+        await notifyForNewPendingRequests(pendingRequests)
         watchBridge.publish(pendingRequests)
     }
 
@@ -177,6 +181,13 @@ public final class CompanionViewModel: ObservableObject {
             return
         }
         await send(action: response.action, for: request, message: response.message)
+    }
+
+    private func notifyForNewPendingRequests(_ requests: [AgentRequest]) async {
+        for request in requests where !notifiedRequestIds.contains(request.id) {
+            notifiedRequestIds.insert(request.id)
+            await notificationBridge.notifyNewRequest(request)
+        }
     }
 
     private func runLoading(_ operation: () async throws -> Void) async {

@@ -265,6 +265,35 @@ struct CompanionViewModelTests {
         #expect(notificationBridge.authorizationRequestCount == 1)
         #expect(model.notificationStatus == .ready)
     }
+
+    @Test func notifiesOnlyNewPendingRequests() async {
+        let firstRequest = sampleRequest(id: "request-1")
+        let secondRequest = sampleRequest(id: "request-2")
+        let fakeClient = FakeClient()
+        let notificationBridge = FakeNotificationBridge(status: .ready)
+        let store = InMemoryPairingCredentialStore(
+            credential: StoredPairingCredential(
+                helperURL: URL(string: "http://127.0.0.1:42731")!,
+                bearerToken: "saved-token"
+            )
+        )
+        fakeClient.pendingRequestResults = [
+            [firstRequest],
+            [firstRequest],
+            [firstRequest, secondRequest]
+        ]
+        let model = CompanionViewModel(
+            credentialStore: store,
+            notificationBridge: notificationBridge,
+            clientFactory: { _ in fakeClient }
+        )
+
+        await model.loadPendingRequests()
+        await model.loadPendingRequests()
+        await model.loadPendingRequests()
+
+        #expect(notificationBridge.notifiedRequests.map(\.id) == ["request-1", "request-2"])
+    }
 }
 
 private final class FakeClient: HelperClientProtocol, @unchecked Sendable {
