@@ -6,6 +6,7 @@ import Foundation
 public final class WatchRequestsViewModel: ObservableObject {
     @Published public private(set) var requests: [AgentRequest]
     @Published public private(set) var errorMessage: String?
+    @Published public private(set) var responseStatus: WatchResponseBridgeStatus
 
     private let responseBridge: any WatchResponseBridge
 
@@ -16,6 +17,13 @@ public final class WatchRequestsViewModel: ObservableObject {
         self.requests = requests
         self.errorMessage = nil
         self.responseBridge = responseBridge
+        self.responseStatus = responseBridge.status
+
+        responseBridge.setStatusHandler { [weak self] status in
+            Task { @MainActor [weak self] in
+                self?.responseStatus = status
+            }
+        }
     }
 
     public func apply(applicationContext: [String: Any]) {

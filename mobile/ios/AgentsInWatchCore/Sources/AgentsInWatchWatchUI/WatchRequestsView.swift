@@ -11,6 +11,15 @@ public struct WatchRequestsView: View {
     public var body: some View {
         NavigationStack {
             List {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label(model.responseStatus.title, systemImage: "iphone")
+                        .font(.caption)
+                    Text(model.responseStatus.detail)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+
                 if model.requests.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Image(systemName: "checkmark.circle")

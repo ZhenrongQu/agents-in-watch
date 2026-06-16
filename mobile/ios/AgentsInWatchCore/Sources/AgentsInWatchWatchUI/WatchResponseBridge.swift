@@ -4,14 +4,46 @@ import Foundation
 import WatchConnectivity
 #endif
 
+public struct WatchResponseBridgeStatus: Equatable, Sendable {
+    public let title: String
+    public let detail: String
+
+    public init(title: String, detail: String) {
+        self.title = title
+        self.detail = detail
+    }
+
+    public static let unavailable = WatchResponseBridgeStatus(
+        title: "iPhone Unavailable",
+        detail: "WatchConnectivity is not available on this watch."
+    )
+
+    public static let activating = WatchResponseBridgeStatus(
+        title: "Connecting to iPhone",
+        detail: "Waiting for the WatchConnectivity session."
+    )
+
+    public static let ready = WatchResponseBridgeStatus(
+        title: "iPhone Ready",
+        detail: "Responses can be sent back to the iPhone."
+    )
+}
+
 public protocol WatchResponseBridge: Sendable {
+    var status: WatchResponseBridgeStatus { get }
+
     func send(_ response: WatchRequestResponse)
+    func setStatusHandler(_ handler: @escaping @Sendable (WatchResponseBridgeStatus) -> Void)
 }
 
 public struct NoopWatchResponseBridge: WatchResponseBridge {
     public init() {}
 
+    public var status: WatchResponseBridgeStatus { .unavailable }
+
     public func send(_ response: WatchRequestResponse) {}
+
+    public func setStatusHandler(_ handler: @escaping @Sendable (WatchResponseBridgeStatus) -> Void) {}
 }
 
 public enum DefaultWatchResponseBridgeFactory {
@@ -27,6 +59,8 @@ public enum DefaultWatchResponseBridgeFactory {
 #if canImport(WatchConnectivity)
 public final class WatchConnectivityResponseBridge: NSObject, WatchResponseBridge, WCSessionDelegate, @unchecked Sendable {
     private let session: WCSession?
+    private var statusHandler: (@Sendable (WatchResponseBridgeStatus) -> Void)?
+    public private(set) var status: WatchResponseBridgeStatus
 
     public override convenience init() {
         self.init(session: WCSession.isSupported() ? WCSession.default : nil)
@@ -34,6 +68,7 @@ public final class WatchConnectivityResponseBridge: NSObject, WatchResponseBridg
 
     init(session: WCSession?) {
         self.session = session
+        self.status = session == nil ? .unavailable : .activating
         super.init()
         self.session?.delegate = self
         self.session?.activate()
@@ -49,10 +84,39 @@ public final class WatchConnectivityResponseBridge: NSObject, WatchResponseBridg
         session.sendMessage(message, replyHandler: nil, errorHandler: nil)
     }
 
+    public func setStatusHandler(_ handler: @escaping @Sendable (WatchResponseBridgeStatus) -> Void) {
+        statusHandler = handler
+    }
+
     public func session(
         _ session: WCSession,
         activationDidCompleteWith activationState: WCSessionActivationState,
         error: Error?
-    ) {}
+    ) {
+        if let error {
+            updateStatus(WatchResponseBridgeStatus(
+                title: "iPhone Error",
+                detail: error.localizedDescription
+            ))
+            return
+        }
+
+        switch activationState {
+        case .activated:
+            updateStatus(.ready)
+        case .inactive, .notActivated:
+            updateStatus(.activating)
+        @unknown default:
+            updateStatus(WatchResponseBridgeStatus(
+                title: "iPhone Unknown",
+                detail: "WatchConnectivity reported an unknown state."
+            ))
+        }
+    }
+
+    private func updateStatus(_ status: WatchResponseBridgeStatus) {
+        self.status = status
+        statusHandler?(status)
+    }
 }
 #endif

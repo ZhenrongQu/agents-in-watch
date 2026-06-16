@@ -6,10 +6,12 @@ import Testing
 @MainActor
 struct WatchRequestsViewModelTests {
     @Test func startsEmpty() {
-        let model = WatchRequestsViewModel()
+        let bridge = FakeWatchResponseBridge(status: .unavailable)
+        let model = WatchRequestsViewModel(responseBridge: bridge)
 
         #expect(model.requests.isEmpty)
         #expect(model.errorMessage == nil)
+        #expect(model.responseStatus == .unavailable)
     }
 
     @Test func appliesApplicationContext() throws {
@@ -50,13 +52,40 @@ struct WatchRequestsViewModelTests {
             )
         ])
     }
+
+    @Test func updatesResponseStatusFromBridge() async {
+        let bridge = FakeWatchResponseBridge(status: .activating)
+        let model = WatchRequestsViewModel(responseBridge: bridge)
+
+        bridge.simulateStatus(.ready)
+        for _ in 0..<5 {
+            await Task.yield()
+        }
+
+        #expect(model.responseStatus == .ready)
+    }
 }
 
 private final class FakeWatchResponseBridge: WatchResponseBridge, @unchecked Sendable {
     var sentResponses: [WatchRequestResponse] = []
+    private(set) var status: WatchResponseBridgeStatus
+    private var statusHandler: (@Sendable (WatchResponseBridgeStatus) -> Void)?
+
+    init(status: WatchResponseBridgeStatus = .ready) {
+        self.status = status
+    }
 
     func send(_ response: WatchRequestResponse) {
         sentResponses.append(response)
+    }
+
+    func setStatusHandler(_ handler: @escaping @Sendable (WatchResponseBridgeStatus) -> Void) {
+        statusHandler = handler
+    }
+
+    func simulateStatus(_ status: WatchResponseBridgeStatus) {
+        self.status = status
+        statusHandler?(status)
     }
 }
 
