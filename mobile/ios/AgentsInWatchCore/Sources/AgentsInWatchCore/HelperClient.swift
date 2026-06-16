@@ -3,7 +3,7 @@ import Foundation
 import FoundationNetworking
 #endif
 
-public final class HelperClient: @unchecked Sendable {
+public final class HelperClient: HelperClientProtocol, @unchecked Sendable {
     public let baseURL: URL
     public var bearerToken: String?
 

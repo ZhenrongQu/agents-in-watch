@@ -12,13 +12,25 @@ let package = Package(
         .library(
             name: "AgentsInWatchCore",
             targets: ["AgentsInWatchCore"]
+        ),
+        .library(
+            name: "AgentsInWatchMobileUI",
+            targets: ["AgentsInWatchMobileUI"]
         )
     ],
     targets: [
         .target(name: "AgentsInWatchCore"),
+        .target(
+            name: "AgentsInWatchMobileUI",
+            dependencies: ["AgentsInWatchCore"]
+        ),
         .testTarget(
             name: "AgentsInWatchCoreTests",
             dependencies: ["AgentsInWatchCore"]
+        ),
+        .testTarget(
+            name: "AgentsInWatchMobileUITests",
+            dependencies: ["AgentsInWatchMobileUI"]
         )
     ]
 )
