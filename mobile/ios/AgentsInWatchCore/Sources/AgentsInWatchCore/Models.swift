@@ -1,6 +1,6 @@
 import Foundation
 
-public struct PendingRequestsResponse: Decodable, Equatable, Sendable {
+public struct PendingRequestsResponse: Codable, Equatable, Sendable {
     public let requests: [AgentRequest]
 
     public init(requests: [AgentRequest]) {
@@ -8,7 +8,7 @@ public struct PendingRequestsResponse: Decodable, Equatable, Sendable {
     }
 }
 
-public struct AgentRequest: Decodable, Equatable, Identifiable, Sendable {
+public struct AgentRequest: Codable, Equatable, Identifiable, Sendable {
     public let id: String
     public let agentType: AgentType
     public let projectName: String
@@ -57,12 +57,12 @@ public struct AgentRequest: Decodable, Equatable, Identifiable, Sendable {
     }
 }
 
-public enum AgentType: String, Decodable, Equatable, Sendable {
+public enum AgentType: String, Codable, Equatable, Sendable {
     case claudeCode = "claude-code"
     case codexDesktop = "codex-desktop"
 }
 
-public enum RequestType: String, Decodable, Equatable, Sendable {
+public enum RequestType: String, Codable, Equatable, Sendable {
     case approval
     case shortReply = "short-reply"
     case pause
@@ -77,13 +77,13 @@ public enum RequestAction: String, Codable, Equatable, Hashable, Sendable {
     case openPhone = "open-phone"
 }
 
-public enum RiskLevel: String, Decodable, Equatable, Sendable {
+public enum RiskLevel: String, Codable, Equatable, Sendable {
     case low
     case medium
     case high
 }
 
-public enum RequestStatus: String, Decodable, Equatable, Sendable {
+public enum RequestStatus: String, Codable, Equatable, Sendable {
     case pending
     case resolved
 }
