@@ -9,6 +9,7 @@ The current implementation is the first desktop-helper slice. It can:
 - Accept a response for a pending request.
 - Pair a device and protect request APIs with bearer-token auth.
 - Translate Claude Code hook payloads into the shared request model.
+- Surface lightweight iPhone and Watch connectivity diagnostics while testing real devices.
 
 It does not yet include packaged desktop installers, Codex desktop adapter, Watch notifications, or background retry queues.
 
@@ -121,6 +122,8 @@ open mobile/ios/AgentsInWatch.xcodeproj
 
 Select the `AgentsInWatch` scheme, choose an iPhone simulator or device, and run. The app uses the local Swift package at `mobile/ios/AgentsInWatchCore`.
 
+The companion screen shows whether its Watch bridge is unavailable, activating, or ready, which helps verify the iPhone can publish pending requests to the Watch before testing agent approvals.
+
 Full app builds require Xcode. The Command Line Tools package alone is enough for `swift test`, but not enough for `xcodebuild` or simulator runs.
 
 ## Apple Watch App
@@ -135,6 +138,8 @@ open mobile/ios/AgentsInWatch.xcodeproj
 
 Select the `AgentsInWatchWatch` scheme and choose a watchOS simulator or device. The current Watch slice can display request snapshots published by the iPhone companion and send allow, deny, pause, or short reply responses back to the iPhone through the shared WatchConnectivity payload format.
 
+The Watch screen shows whether its iPhone response bridge is unavailable, activating, or ready, so device-pairing issues are visible before you tap allow, deny, pause, or send a short reply.
+
 ## iPhone Companion Core
 
 The repository now includes a Swift Package for the iPhone companion core:
@@ -144,7 +149,7 @@ cd mobile/ios/AgentsInWatchCore
 swift test
 ```
 
-The package currently contains tested models, a helper API client, a minimal SwiftUI companion interface, Keychain-backed pairing credential storage, WatchConnectivity request and response payloads, and a minimal Watch request-list UI. It does not yet include QR scanning, notifications, background retry queues, or simulator UI automation.
+The package currently contains tested models, a helper API client, a minimal SwiftUI companion interface, Keychain-backed pairing credential storage, WatchConnectivity request and response payloads, lightweight connectivity diagnostics, and a minimal Watch request-list UI. It does not yet include QR scanning, notifications, background retry queues, or simulator UI automation.
 
 ## Safety
 
