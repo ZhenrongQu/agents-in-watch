@@ -24,7 +24,7 @@ public struct WatchRequestsView: View {
                     .padding(.vertical, 8)
                 } else {
                     ForEach(model.requests) { request in
-                        WatchRequestRow(request: request)
+                        WatchRequestRow(request: request, model: model)
                     }
                 }
 
@@ -41,6 +41,9 @@ public struct WatchRequestsView: View {
 
 private struct WatchRequestRow: View {
     let request: AgentRequest
+    @ObservedObject var model: WatchRequestsViewModel
+    @State private var isReplyPresented = false
+    @State private var replyText = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -61,8 +64,38 @@ private struct WatchRequestRow: View {
             Text(request.agentType.rawValue)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+
+            HStack {
+                ForEach(request.actions, id: \.self) { action in
+                    actionButton(for: action)
+                }
+            }
+            .buttonStyle(.bordered)
         }
         .padding(.vertical, 4)
+        .sheet(isPresented: $isReplyPresented) {
+            NavigationStack {
+                TextField("Reply", text: $replyText)
+                    .padding()
+                    .navigationTitle("Reply")
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") {
+                                replyText = ""
+                                isReplyPresented = false
+                            }
+                        }
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Send") {
+                                model.send(action: .reply, for: request, message: replyText)
+                                replyText = ""
+                                isReplyPresented = false
+                            }
+                            .disabled(replyText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        }
+                    }
+            }
+        }
     }
 
     private var riskColor: Color {
@@ -73,6 +106,36 @@ private struct WatchRequestRow: View {
             .orange
         case .high:
             .red
+        }
+    }
+
+    @ViewBuilder
+    private func actionButton(for action: RequestAction) -> some View {
+        switch action {
+        case .allow:
+            Button {
+                model.send(action: .allow, for: request)
+            } label: {
+                Image(systemName: "checkmark")
+            }
+        case .deny:
+            Button(role: .destructive) {
+                model.send(action: .deny, for: request)
+            } label: {
+                Image(systemName: "xmark")
+            }
+        case .pause:
+            Button {
+                model.send(action: .pause, for: request)
+            } label: {
+                Image(systemName: "pause")
+            }
+        case .reply, .openPhone:
+            Button {
+                isReplyPresented = true
+            } label: {
+                Image(systemName: "bubble.left")
+            }
         }
     }
 }

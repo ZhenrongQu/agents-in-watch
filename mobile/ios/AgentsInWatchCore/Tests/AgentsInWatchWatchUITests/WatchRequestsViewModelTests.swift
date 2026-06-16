@@ -22,6 +22,42 @@ struct WatchRequestsViewModelTests {
         #expect(model.requests == [request])
         #expect(model.errorMessage == nil)
     }
+
+    @Test func sendsWatchResponseForRequestAction() throws {
+        let request = sampleRequest(id: "request-1")
+        let bridge = FakeWatchResponseBridge()
+        let model = WatchRequestsViewModel(requests: [request], responseBridge: bridge)
+
+        model.send(action: .allow, for: request)
+
+        #expect(bridge.sentResponses == [
+            WatchRequestResponse(requestId: "request-1", action: .allow)
+        ])
+    }
+
+    @Test func sendsWatchReplyWithMessage() throws {
+        let request = sampleRequest(id: "request-1")
+        let bridge = FakeWatchResponseBridge()
+        let model = WatchRequestsViewModel(requests: [request], responseBridge: bridge)
+
+        model.send(action: .reply, for: request, message: "try the focused test")
+
+        #expect(bridge.sentResponses == [
+            WatchRequestResponse(
+                requestId: "request-1",
+                action: .reply,
+                message: "try the focused test"
+            )
+        ])
+    }
+}
+
+private final class FakeWatchResponseBridge: WatchResponseBridge, @unchecked Sendable {
+    var sentResponses: [WatchRequestResponse] = []
+
+    func send(_ response: WatchRequestResponse) {
+        sentResponses.append(response)
+    }
 }
 
 private func sampleRequest(id: String) -> AgentRequest {
