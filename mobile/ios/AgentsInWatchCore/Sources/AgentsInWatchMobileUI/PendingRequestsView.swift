@@ -14,6 +14,14 @@ struct PendingRequestsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Notifications") {
+                Label(model.notificationStatus.title, systemImage: "bell")
+                    .font(.subheadline)
+                Text(model.notificationStatus.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             if model.pendingRequests.isEmpty {
                 ContentUnavailableView(
                     "No Pending Requests",

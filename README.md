@@ -11,8 +11,9 @@ The current implementation is the first desktop-helper slice. It can:
 - Translate Claude Code hook payloads into the shared request model.
 - Surface lightweight iPhone and Watch connectivity diagnostics while testing real devices.
 - Report helper status and run a local Claude Code-style smoke test.
+- Schedule local request notifications from the iPhone companion.
 
-It does not yet include packaged desktop installers, Codex desktop adapter, Watch notifications, or background retry queues.
+It does not yet include packaged desktop installers, Codex desktop adapter, notification action buttons, or background retry queues.
 
 ## Run
 
@@ -207,6 +208,8 @@ Select the `AgentsInWatch` scheme, choose an iPhone simulator or device, and run
 
 The companion screen shows whether its Watch bridge is unavailable, activating, or ready, which helps verify the iPhone can publish pending requests to the Watch before testing agent approvals.
 
+The companion asks for notification permission and schedules local alerts for newly discovered pending requests. The current notification MVP opens the app for review; it does not yet include notification action buttons or background retry guarantees.
+
 Full app builds require Xcode. The Command Line Tools package alone is enough for `swift test`, but not enough for `xcodebuild` or simulator runs.
 
 ## Apple Watch App
@@ -232,7 +235,7 @@ cd mobile/ios/AgentsInWatchCore
 swift test
 ```
 
-The package currently contains tested models, a helper API client, a minimal SwiftUI companion interface, Keychain-backed pairing credential storage, WatchConnectivity request and response payloads, lightweight connectivity diagnostics, and a minimal Watch request-list UI. It does not yet include QR scanning, notifications, background retry queues, or simulator UI automation.
+The package currently contains tested models, a helper API client, a minimal SwiftUI companion interface, Keychain-backed pairing credential storage, WatchConnectivity request and response payloads, lightweight connectivity diagnostics, local request notification scheduling, and a minimal Watch request-list UI. It does not yet include QR scanning, notification action buttons, background retry queues, or simulator UI automation.
 
 ## Safety
 
