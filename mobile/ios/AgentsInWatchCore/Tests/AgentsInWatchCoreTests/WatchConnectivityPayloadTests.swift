@@ -17,6 +17,32 @@ struct WatchConnectivityPayloadTests {
 
         #expect(decoded.isEmpty)
     }
+
+    @Test func encodesAndDecodesWatchResponseMessage() throws {
+        let response = WatchRequestResponse(
+            requestId: "request-1",
+            action: .reply,
+            message: "run the focused test"
+        )
+
+        let message = try WatchConnectivityPayload.makeMessage(response: response)
+        let decoded = try WatchConnectivityPayload.decodeResponse(from: message)
+
+        #expect(decoded == response)
+    }
+
+    @Test func encodesAndDecodesWatchApprovalWithoutMessage() throws {
+        let response = WatchRequestResponse(
+            requestId: "request-1",
+            action: .allow,
+            message: nil
+        )
+
+        let message = try WatchConnectivityPayload.makeMessage(response: response)
+        let decoded = try WatchConnectivityPayload.decodeResponse(from: message)
+
+        #expect(decoded == response)
+    }
 }
 
 private func sampleRequest(id: String) -> AgentRequest {
