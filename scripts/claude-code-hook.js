@@ -7,9 +7,14 @@ const computerName = process.env.COMPUTER_NAME ?? "local-computer";
 try {
   const payload = JSON.parse(await readStdin());
   const request = translateClaudeCodeHook(payload, { computerName });
+  const headers = { "content-type": "application/json" };
+  const token = process.env.AGENTS_IN_WATCH_TOKEN;
+  if (token) {
+    headers.authorization = `Bearer ${token}`;
+  }
   const response = await fetch(`${helperUrl}/requests`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers,
     body: JSON.stringify(request),
   });
 
