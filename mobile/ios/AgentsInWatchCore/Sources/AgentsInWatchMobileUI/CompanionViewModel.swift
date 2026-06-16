@@ -221,6 +221,13 @@ public final class CompanionViewModel: ObservableObject {
         guard case .connected = phase, !isLoading else {
             return
         }
+        await runLoading {
+            try await loadPendingRequestsFromClient()
+            autoRefreshStatus = AutoRefreshStatus(
+                isRunning: autoRefreshDriver.isRunning,
+                lastRefreshedAt: Date()
+            )
+        }
     }
 
     private func runLoading(_ operation: () async throws -> Void) async {

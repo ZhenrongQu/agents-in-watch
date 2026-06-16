@@ -286,6 +286,54 @@ struct CompanionViewModelTests {
         #expect(model.autoRefreshStatus.isRunning)
     }
 
+    @Test func autoRefreshTickLoadsPendingRequests() async {
+        let request = sampleRequest(id: "request-1")
+        let fakeClient = FakeClient()
+        let autoRefreshDriver = FakeAutoRefreshDriver()
+        let store = InMemoryPairingCredentialStore(
+            credential: StoredPairingCredential(
+                helperURL: URL(string: "http://127.0.0.1:42731")!,
+                bearerToken: "saved-token"
+            )
+        )
+        fakeClient.pendingRequestResults = [[request]]
+        let model = CompanionViewModel(
+            credentialStore: store,
+            autoRefreshDriver: autoRefreshDriver,
+            clientFactory: { _ in fakeClient }
+        )
+
+        autoRefreshDriver.simulateTick()
+        for _ in 0..<5 {
+            await Task.yield()
+        }
+
+        #expect(fakeClient.listPendingRequestsCallCount == 1)
+        #expect(model.pendingRequests == [request])
+        #expect(model.autoRefreshStatus.lastRefreshedAt != nil)
+    }
+
+    @Test func disconnectStopsAutoRefresh() {
+        let autoRefreshDriver = FakeAutoRefreshDriver()
+        let store = InMemoryPairingCredentialStore(
+            credential: StoredPairingCredential(
+                helperURL: URL(string: "http://127.0.0.1:42731")!,
+                bearerToken: "saved-token"
+            )
+        )
+        let model = CompanionViewModel(
+            credentialStore: store,
+            autoRefreshDriver: autoRefreshDriver,
+            clientFactory: { _ in FakeClient() }
+        )
+
+        model.disconnect()
+
+        #expect(autoRefreshDriver.isRunning == false)
+        #expect(autoRefreshDriver.stopCallCount == 1)
+        #expect(model.autoRefreshStatus == .stopped)
+    }
+
     @Test func notifiesOnlyNewPendingRequests() async {
         let firstRequest = sampleRequest(id: "request-1")
         let secondRequest = sampleRequest(id: "request-2")
