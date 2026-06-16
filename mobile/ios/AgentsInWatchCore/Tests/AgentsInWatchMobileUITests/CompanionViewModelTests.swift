@@ -77,6 +77,7 @@ struct CompanionViewModelTests {
     @Test func sendsAllowResponseAndReloadsRequests() async {
         let request = sampleRequest(id: "request-1")
         let fakeClient = FakeClient()
+        let watchBridge = FakeWatchRequestBridge()
         fakeClient.claimPairingResult = PairingClaim(
             id: "claim-1",
             pairingSessionId: "session-1",
@@ -97,6 +98,7 @@ struct CompanionViewModelTests {
             pairingCode: "123456",
             deviceName: "Quinn iPhone",
             credentialStore: InMemoryPairingCredentialStore(),
+            watchBridge: watchBridge,
             clientFactory: { _ in fakeClient }
         )
 
@@ -108,10 +110,12 @@ struct CompanionViewModelTests {
         #expect(fakeClient.respondedResponse == RequestResponse(action: .allow))
         #expect(fakeClient.listPendingRequestsCallCount == 2)
         #expect(model.pendingRequests.isEmpty)
+        #expect(watchBridge.publishedRequests == [[request], []])
     }
 
     @Test func startsConnectedWhenCredentialExists() async {
         let request = sampleRequest(id: "request-1")
+        let watchBridge = FakeWatchRequestBridge()
         let store = InMemoryPairingCredentialStore(
             credential: StoredPairingCredential(
                 helperURL: URL(string: "http://127.0.0.1:42731")!,
@@ -122,6 +126,7 @@ struct CompanionViewModelTests {
         fakeClient.pendingRequestResults = [[request]]
         let model = CompanionViewModel(
             credentialStore: store,
+            watchBridge: watchBridge,
             clientFactory: { _ in fakeClient }
         )
 
@@ -131,6 +136,7 @@ struct CompanionViewModelTests {
         #expect(model.helperURLText == "http://127.0.0.1:42731")
         #expect(fakeClient.bearerToken == "saved-token")
         #expect(model.pendingRequests == [request])
+        #expect(watchBridge.publishedRequests == [[request]])
     }
 
     @Test func savesApprovedCredentialAfterPairingApproval() async throws {
@@ -161,6 +167,7 @@ struct CompanionViewModelTests {
     }
 
     @Test func clearsSavedCredentialOnDisconnect() async throws {
+        let watchBridge = FakeWatchRequestBridge()
         let store = InMemoryPairingCredentialStore(
             credential: StoredPairingCredential(
                 helperURL: URL(string: "http://127.0.0.1:42731")!,
@@ -169,6 +176,7 @@ struct CompanionViewModelTests {
         )
         let model = CompanionViewModel(
             credentialStore: store,
+            watchBridge: watchBridge,
             clientFactory: { _ in FakeClient() }
         )
 
@@ -176,6 +184,7 @@ struct CompanionViewModelTests {
 
         #expect(try store.load() == nil)
         #expect(model.phase == .disconnected)
+        #expect(watchBridge.publishedRequests == [[]])
     }
 }
 
@@ -226,6 +235,14 @@ private final class FakeClient: HelperClientProtocol, @unchecked Sendable {
         respondedRequestId = requestId
         respondedResponse = response
         return sampleRequest(id: requestId)
+    }
+}
+
+private final class FakeWatchRequestBridge: WatchRequestBridge, @unchecked Sendable {
+    var publishedRequests: [[AgentRequest]] = []
+
+    func publish(_ requests: [AgentRequest]) {
+        publishedRequests.append(requests)
     }
 }
 

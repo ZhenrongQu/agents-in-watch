@@ -19,6 +19,7 @@ public final class CompanionViewModel: ObservableObject {
     @Published public private(set) var errorMessage: String?
 
     private let credentialStore: any PairingCredentialStore
+    private let watchBridge: any WatchRequestBridge
     private let clientFactory: @Sendable (URL) -> any HelperClientProtocol
     private var client: (any HelperClientProtocol)?
 
@@ -27,12 +28,14 @@ public final class CompanionViewModel: ObservableObject {
         pairingCode: String = "",
         deviceName: String = "iPhone",
         credentialStore: any PairingCredentialStore = KeychainPairingCredentialStore(),
+        watchBridge: any WatchRequestBridge = DefaultWatchRequestBridgeFactory.make(),
         clientFactory: @escaping @Sendable (URL) -> any HelperClientProtocol = { HelperClient(baseURL: $0) }
     ) {
         self.helperURLText = helperURLText
         self.pairingCode = pairingCode
         self.deviceName = deviceName
         self.credentialStore = credentialStore
+        self.watchBridge = watchBridge
         self.clientFactory = clientFactory
         self.phase = .disconnected
         self.pendingRequests = []
@@ -124,6 +127,7 @@ public final class CompanionViewModel: ObservableObject {
         pendingRequests = []
         errorMessage = nil
         try? credentialStore.clear()
+        watchBridge.publish([])
     }
 
     private func loadPendingRequestsFromClient() async throws {
@@ -131,6 +135,7 @@ public final class CompanionViewModel: ObservableObject {
             throw CompanionViewModelError.notPaired
         }
         pendingRequests = try await activeClient.listPendingRequests()
+        watchBridge.publish(pendingRequests)
     }
 
     private func restore(_ credential: StoredPairingCredential) {
