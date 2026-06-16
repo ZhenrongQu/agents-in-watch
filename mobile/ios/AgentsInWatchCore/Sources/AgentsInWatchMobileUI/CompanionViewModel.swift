@@ -19,10 +19,12 @@ public final class CompanionViewModel: ObservableObject {
     @Published public private(set) var errorMessage: String?
     @Published public private(set) var watchStatus: WatchRequestBridgeStatus
     @Published public private(set) var notificationStatus: NotificationBridgeStatus
+    @Published public private(set) var autoRefreshStatus: AutoRefreshStatus
 
     private let credentialStore: any PairingCredentialStore
     private let watchBridge: any WatchRequestBridge
     private let notificationBridge: any NotificationBridge
+    private let autoRefreshDriver: any AutoRefreshDriver
     private let clientFactory: @Sendable (URL) -> any HelperClientProtocol
     private var client: (any HelperClientProtocol)?
     private var notifiedRequestIds: Set<String>
@@ -34,6 +36,7 @@ public final class CompanionViewModel: ObservableObject {
         credentialStore: any PairingCredentialStore = KeychainPairingCredentialStore(),
         watchBridge: any WatchRequestBridge = DefaultWatchRequestBridgeFactory.make(),
         notificationBridge: any NotificationBridge = DefaultNotificationBridgeFactory.make(),
+        autoRefreshDriver: any AutoRefreshDriver = TaskAutoRefreshDriver(),
         clientFactory: @escaping @Sendable (URL) -> any HelperClientProtocol = { HelperClient(baseURL: $0) }
     ) {
         self.helperURLText = helperURLText
@@ -42,6 +45,7 @@ public final class CompanionViewModel: ObservableObject {
         self.credentialStore = credentialStore
         self.watchBridge = watchBridge
         self.notificationBridge = notificationBridge
+        self.autoRefreshDriver = autoRefreshDriver
         self.clientFactory = clientFactory
         self.phase = .disconnected
         self.pendingRequests = []
@@ -49,6 +53,7 @@ public final class CompanionViewModel: ObservableObject {
         self.errorMessage = nil
         self.watchStatus = watchBridge.status
         self.notificationStatus = notificationBridge.status
+        self.autoRefreshStatus = .stopped
         self.notifiedRequestIds = []
 
         do {
@@ -72,6 +77,11 @@ public final class CompanionViewModel: ObservableObject {
         notificationBridge.setStatusHandler { [weak self] status in
             Task { @MainActor [weak self] in
                 self?.notificationStatus = status
+            }
+        }
+        autoRefreshDriver.setTickHandler { [weak self] in
+            Task { @MainActor [weak self] in
+                await self?.handleAutoRefreshTick()
             }
         }
         Task {
@@ -99,6 +109,7 @@ public final class CompanionViewModel: ObservableObject {
                 client = nextClient
                 try credentialStore.save(StoredPairingCredential(helperURL: url, bearerToken: token))
                 phase = .connected
+                startAutoRefresh()
                 try await loadPendingRequestsFromClient()
             } else {
                 phase = .awaitingApproval(claimId: claim.id)
@@ -124,6 +135,7 @@ public final class CompanionViewModel: ObservableObject {
                 client = activeClient
                 try credentialStore.save(StoredPairingCredential(helperURL: helperURL, bearerToken: token))
                 phase = .connected
+                startAutoRefresh()
                 try await loadPendingRequestsFromClient()
             }
         }
@@ -155,6 +167,7 @@ public final class CompanionViewModel: ObservableObject {
         pendingRequests = []
         errorMessage = nil
         notifiedRequestIds.removeAll()
+        stopAutoRefresh()
         try? credentialStore.clear()
         watchBridge.publish([])
     }
@@ -174,6 +187,7 @@ public final class CompanionViewModel: ObservableObject {
         restoredClient.bearerToken = credential.bearerToken
         client = restoredClient
         phase = .connected
+        startAutoRefresh()
     }
 
     private func handleWatchResponse(_ response: WatchRequestResponse) async {
@@ -187,6 +201,25 @@ public final class CompanionViewModel: ObservableObject {
         for request in requests where !notifiedRequestIds.contains(request.id) {
             notifiedRequestIds.insert(request.id)
             await notificationBridge.notifyNewRequest(request)
+        }
+    }
+
+    private func startAutoRefresh() {
+        autoRefreshDriver.start()
+        autoRefreshStatus = AutoRefreshStatus(
+            isRunning: autoRefreshDriver.isRunning,
+            lastRefreshedAt: autoRefreshStatus.lastRefreshedAt
+        )
+    }
+
+    private func stopAutoRefresh() {
+        autoRefreshDriver.stop()
+        autoRefreshStatus = .stopped
+    }
+
+    private func handleAutoRefreshTick() async {
+        guard case .connected = phase, !isLoading else {
+            return
         }
     }
 

@@ -266,6 +266,26 @@ struct CompanionViewModelTests {
         #expect(model.notificationStatus == .ready)
     }
 
+    @Test func startsAutoRefreshWhenCredentialExists() {
+        let autoRefreshDriver = FakeAutoRefreshDriver()
+        let store = InMemoryPairingCredentialStore(
+            credential: StoredPairingCredential(
+                helperURL: URL(string: "http://127.0.0.1:42731")!,
+                bearerToken: "saved-token"
+            )
+        )
+        let model = CompanionViewModel(
+            credentialStore: store,
+            autoRefreshDriver: autoRefreshDriver,
+            clientFactory: { _ in FakeClient() }
+        )
+
+        #expect(model.phase == .connected)
+        #expect(autoRefreshDriver.isRunning)
+        #expect(autoRefreshDriver.startCallCount == 1)
+        #expect(model.autoRefreshStatus.isRunning)
+    }
+
     @Test func notifiesOnlyNewPendingRequests() async {
         let firstRequest = sampleRequest(id: "request-1")
         let secondRequest = sampleRequest(id: "request-2")
@@ -400,6 +420,31 @@ private final class FakeNotificationBridge: NotificationBridge, @unchecked Senda
 
     func setStatusHandler(_ handler: @escaping @Sendable (NotificationBridgeStatus) -> Void) {
         statusHandler = handler
+    }
+}
+
+private final class FakeAutoRefreshDriver: AutoRefreshDriver, @unchecked Sendable {
+    private(set) var isRunning = false
+    private(set) var startCallCount = 0
+    private(set) var stopCallCount = 0
+    private var tickHandler: (@Sendable () -> Void)?
+
+    func setTickHandler(_ handler: @escaping @Sendable () -> Void) {
+        tickHandler = handler
+    }
+
+    func start() {
+        isRunning = true
+        startCallCount += 1
+    }
+
+    func stop() {
+        isRunning = false
+        stopCallCount += 1
+    }
+
+    func simulateTick() {
+        tickHandler?()
     }
 }
 
