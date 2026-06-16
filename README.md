@@ -100,15 +100,63 @@ curl -X POST http://127.0.0.1:42731/requests/REQUEST_ID/response \
 
 ## Claude Code Hook Bridge
 
-The script `scripts/claude-code-hook.js` reads a Claude Code hook payload from stdin, translates it, and posts it to the helper:
+The script `scripts/claude-code-hook.js` reads a Claude Code hook payload from stdin, translates it, and posts it to the helper. It supports Claude Code `PermissionRequest` and `Notification` events.
 
 ```bash
-AGENTS_IN_WATCH_HELPER_URL=http://127.0.0.1:42731 \
-COMPUTER_NAME=work-mac \
-scripts/claude-code-hook.js
+export AGENTS_IN_WATCH_TOKEN=PASTE_TOKEN_HERE
+export AGENTS_IN_WATCH_HELPER_URL=http://127.0.0.1:42731
+export COMPUTER_NAME="$(hostname)"
 ```
 
-Claude Code hook configuration will be documented after the hook behavior is verified against a live Claude Code session.
+Start Claude Code from the same shell so the hook process inherits these variables.
+
+For a project-local Claude Code setup, create `.claude/settings.local.json` in the project where you run Claude Code:
+
+```json
+{
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/absolute/path/to/agents-in-watch/scripts/claude-code-hook.js"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/absolute/path/to/agents-in-watch/scripts/claude-code-hook.js"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Claude Code sends hook JSON to command hooks on stdin. The bridge posts the translated request to the local helper using `AGENTS_IN_WATCH_TOKEN` as a bearer token. Keep this setup in `settings.local.json` unless you intentionally want to commit hook configuration to a project.
+
+You can smoke-test the bridge without launching Claude Code:
+
+```bash
+printf '%s\n' '{
+  "hook_event_name": "PermissionRequest",
+  "session_id": "manual-smoke-test",
+  "cwd": "'$PWD'",
+  "tool_name": "Bash",
+  "tool_input": { "command": "pnpm test" },
+  "permission_request": { "reason": "Manual Agents in Watch smoke test." }
+}' | scripts/claude-code-hook.js
+```
+
+If the command exits with `0`, open the iPhone app and refresh pending requests. The request should appear on the phone and then on the Watch when WatchConnectivity is ready.
 
 ## iPhone App
 
