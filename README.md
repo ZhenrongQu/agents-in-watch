@@ -7,6 +7,7 @@ The current implementation is the first desktop-helper slice. It can:
 - Accept normalized pending agent requests over a local HTTP API.
 - List pending requests.
 - Accept a response for a pending request.
+- Pair a device and protect request APIs with bearer-token auth.
 - Translate Claude Code hook payloads into the shared request model.
 
 It does not yet include the iPhone app, Apple Watch app, packaged desktop installer, or Codex desktop adapter.
@@ -24,12 +25,47 @@ By default the helper listens on:
 http://127.0.0.1:42731
 ```
 
+The helper requires pairing auth by default. For local development only, you can disable auth:
+
+```bash
+AGENTS_IN_WATCH_AUTH_REQUIRED=0 npm start
+```
+
+## Pair a Device
+
+Start a pairing session:
+
+```bash
+curl -X POST http://127.0.0.1:42731/pairing/sessions
+```
+
+Claim the pairing code from a phone-like client:
+
+```bash
+curl -X POST http://127.0.0.1:42731/pairing/claims \
+  -H 'content-type: application/json' \
+  -d '{ "code": "PAIRING_CODE", "deviceName": "Quinn iPhone" }'
+```
+
+Approve the claim from the desktop:
+
+```bash
+curl -X POST http://127.0.0.1:42731/pairing/claims/CLAIM_ID/approve
+```
+
+The approval response includes a bearer token. Use it as:
+
+```bash
+TOKEN=PASTE_TOKEN_HERE
+```
+
 ## Try the Local API
 
 Create a pending request:
 
 ```bash
 curl -X POST http://127.0.0.1:42731/requests \
+  -H "authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' \
   -d '{
     "agentType": "claude-code",
@@ -48,13 +84,15 @@ curl -X POST http://127.0.0.1:42731/requests \
 List pending requests:
 
 ```bash
-curl http://127.0.0.1:42731/requests
+curl http://127.0.0.1:42731/requests \
+  -H "authorization: Bearer $TOKEN"
 ```
 
 Respond to a request:
 
 ```bash
 curl -X POST http://127.0.0.1:42731/requests/REQUEST_ID/response \
+  -H "authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' \
   -d '{ "action": "allow" }'
 ```
