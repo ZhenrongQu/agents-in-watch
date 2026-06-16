@@ -19,7 +19,12 @@ let package = Package(
         )
     ],
     targets: [
-        .target(name: "AgentsInWatchCore"),
+        .target(
+            name: "AgentsInWatchCore",
+            linkerSettings: [
+                .linkedFramework("Security")
+            ]
+        ),
         .target(
             name: "AgentsInWatchMobileUI",
             dependencies: ["AgentsInWatchCore"]
