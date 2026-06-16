@@ -4,17 +4,49 @@ import Foundation
 import WatchConnectivity
 #endif
 
+public struct WatchRequestBridgeStatus: Equatable, Sendable {
+    public let title: String
+    public let detail: String
+
+    public init(title: String, detail: String) {
+        self.title = title
+        self.detail = detail
+    }
+
+    public static let unavailable = WatchRequestBridgeStatus(
+        title: "Watch Unavailable",
+        detail: "WatchConnectivity is not available on this device."
+    )
+
+    public static let activating = WatchRequestBridgeStatus(
+        title: "Activating Watch",
+        detail: "Waiting for the WatchConnectivity session."
+    )
+
+    public static let ready = WatchRequestBridgeStatus(
+        title: "Watch Ready",
+        detail: "Requests can be mirrored to Apple Watch."
+    )
+}
+
 public protocol WatchRequestBridge: Sendable {
+    var status: WatchRequestBridgeStatus { get }
+
     func publish(_ requests: [AgentRequest])
     func setResponseHandler(_ handler: @escaping @Sendable (WatchRequestResponse) -> Void)
+    func setStatusHandler(_ handler: @escaping @Sendable (WatchRequestBridgeStatus) -> Void)
 }
 
 public struct NoopWatchRequestBridge: WatchRequestBridge {
     public init() {}
 
+    public var status: WatchRequestBridgeStatus { .unavailable }
+
     public func publish(_ requests: [AgentRequest]) {}
 
     public func setResponseHandler(_ handler: @escaping @Sendable (WatchRequestResponse) -> Void) {}
+
+    public func setStatusHandler(_ handler: @escaping @Sendable (WatchRequestBridgeStatus) -> Void) {}
 }
 
 public enum DefaultWatchRequestBridgeFactory {
@@ -31,6 +63,8 @@ public enum DefaultWatchRequestBridgeFactory {
 public final class WatchConnectivityRequestBridge: NSObject, WatchRequestBridge, WCSessionDelegate, @unchecked Sendable {
     private let session: WCSession?
     private var responseHandler: (@Sendable (WatchRequestResponse) -> Void)?
+    private var statusHandler: (@Sendable (WatchRequestBridgeStatus) -> Void)?
+    public private(set) var status: WatchRequestBridgeStatus
 
     public override convenience init() {
         self.init(session: WCSession.isSupported() ? WCSession.default : nil)
@@ -38,6 +72,7 @@ public final class WatchConnectivityRequestBridge: NSObject, WatchRequestBridge,
 
     init(session: WCSession?) {
         self.session = session
+        self.status = session == nil ? .unavailable : .activating
         super.init()
         self.session?.delegate = self
         self.session?.activate()
@@ -57,6 +92,10 @@ public final class WatchConnectivityRequestBridge: NSObject, WatchRequestBridge,
         responseHandler = handler
     }
 
+    public func setStatusHandler(_ handler: @escaping @Sendable (WatchRequestBridgeStatus) -> Void) {
+        statusHandler = handler
+    }
+
     public func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
         guard let response = try? WatchConnectivityPayload.decodeResponse(from: message) else {
             return
@@ -71,7 +110,32 @@ public final class WatchConnectivityRequestBridge: NSObject, WatchRequestBridge,
         _ session: WCSession,
         activationDidCompleteWith activationState: WCSessionActivationState,
         error: Error?
-    ) {}
+    ) {
+        if let error {
+            updateStatus(WatchRequestBridgeStatus(
+                title: "Watch Error",
+                detail: error.localizedDescription
+            ))
+            return
+        }
+
+        switch activationState {
+        case .activated:
+            updateStatus(.ready)
+        case .inactive, .notActivated:
+            updateStatus(.activating)
+        @unknown default:
+            updateStatus(WatchRequestBridgeStatus(
+                title: "Watch Unknown",
+                detail: "WatchConnectivity reported an unknown state."
+            ))
+        }
+    }
+
+    private func updateStatus(_ status: WatchRequestBridgeStatus) {
+        self.status = status
+        statusHandler?(status)
+    }
 
     #if os(iOS)
     public func sessionDidBecomeInactive(_ session: WCSession) {}

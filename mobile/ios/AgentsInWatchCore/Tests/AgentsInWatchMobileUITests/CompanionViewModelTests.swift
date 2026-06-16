@@ -6,12 +6,17 @@ import Testing
 @MainActor
 struct CompanionViewModelTests {
     @Test func startsDisconnected() {
-        let model = CompanionViewModel(credentialStore: InMemoryPairingCredentialStore())
+        let watchBridge = FakeWatchRequestBridge(status: .unavailable)
+        let model = CompanionViewModel(
+            credentialStore: InMemoryPairingCredentialStore(),
+            watchBridge: watchBridge
+        )
 
         #expect(model.phase == .disconnected)
         #expect(model.pendingRequests.isEmpty)
         #expect(model.isLoading == false)
         #expect(model.errorMessage == nil)
+        #expect(model.watchStatus == .unavailable)
     }
 
     @Test func claimsPairingAndMovesToAwaitingApproval() async {
@@ -230,6 +235,21 @@ struct CompanionViewModelTests {
         #expect(model.phase == .disconnected)
         #expect(watchBridge.publishedRequests == [[]])
     }
+
+    @Test func updatesWatchStatusFromBridge() async {
+        let watchBridge = FakeWatchRequestBridge(status: .activating)
+        let model = CompanionViewModel(
+            credentialStore: InMemoryPairingCredentialStore(),
+            watchBridge: watchBridge
+        )
+
+        watchBridge.simulateStatus(.ready)
+        for _ in 0..<5 {
+            await Task.yield()
+        }
+
+        #expect(model.watchStatus == .ready)
+    }
 }
 
 private final class FakeClient: HelperClientProtocol, @unchecked Sendable {
@@ -284,7 +304,13 @@ private final class FakeClient: HelperClientProtocol, @unchecked Sendable {
 
 private final class FakeWatchRequestBridge: WatchRequestBridge, @unchecked Sendable {
     var publishedRequests: [[AgentRequest]] = []
+    private(set) var status: WatchRequestBridgeStatus
     private var responseHandler: (@Sendable (WatchRequestResponse) -> Void)?
+    private var statusHandler: (@Sendable (WatchRequestBridgeStatus) -> Void)?
+
+    init(status: WatchRequestBridgeStatus = .ready) {
+        self.status = status
+    }
 
     func publish(_ requests: [AgentRequest]) {
         publishedRequests.append(requests)
@@ -296,6 +322,15 @@ private final class FakeWatchRequestBridge: WatchRequestBridge, @unchecked Senda
 
     func simulateResponse(_ response: WatchRequestResponse) {
         responseHandler?(response)
+    }
+
+    func setStatusHandler(_ handler: @escaping @Sendable (WatchRequestBridgeStatus) -> Void) {
+        statusHandler = handler
+    }
+
+    func simulateStatus(_ status: WatchRequestBridgeStatus) {
+        self.status = status
+        statusHandler?(status)
     }
 }
 

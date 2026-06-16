@@ -17,6 +17,7 @@ public final class CompanionViewModel: ObservableObject {
     @Published public private(set) var pendingRequests: [AgentRequest]
     @Published public private(set) var isLoading: Bool
     @Published public private(set) var errorMessage: String?
+    @Published public private(set) var watchStatus: WatchRequestBridgeStatus
 
     private let credentialStore: any PairingCredentialStore
     private let watchBridge: any WatchRequestBridge
@@ -41,6 +42,7 @@ public final class CompanionViewModel: ObservableObject {
         self.pendingRequests = []
         self.isLoading = false
         self.errorMessage = nil
+        self.watchStatus = watchBridge.status
 
         do {
             if let credential = try credentialStore.load() {
@@ -53,6 +55,11 @@ public final class CompanionViewModel: ObservableObject {
         watchBridge.setResponseHandler { [weak self] response in
             Task { @MainActor [weak self] in
                 await self?.handleWatchResponse(response)
+            }
+        }
+        watchBridge.setStatusHandler { [weak self] status in
+            Task { @MainActor [weak self] in
+                self?.watchStatus = status
             }
         }
     }

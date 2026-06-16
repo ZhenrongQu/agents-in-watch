@@ -6,6 +6,14 @@ struct PendingRequestsView: View {
 
     var body: some View {
         List {
+            Section("Watch") {
+                Label(model.watchStatus.title, systemImage: "applewatch")
+                    .font(.subheadline)
+                Text(model.watchStatus.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             if model.pendingRequests.isEmpty {
                 ContentUnavailableView(
                     "No Pending Requests",
