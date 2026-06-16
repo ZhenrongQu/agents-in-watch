@@ -9,6 +9,7 @@
   },
   "scripts": {
     "start": "node src/helper/server.js",
+    "smoke:claude-code": "node scripts/smoke-claude-code.js",
     "test": "node --test"
   }
 }
