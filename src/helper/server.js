@@ -13,6 +13,15 @@ export function createServer({
         return sendJson(response, 200, { ok: true });
       }
 
+      if (request.method === "GET" && request.url === "/status") {
+        return sendJson(response, 200, {
+          ok: true,
+          service: "agents-in-watch-helper",
+          authRequired,
+          requests: store.summary(),
+        });
+      }
+
       if (request.method === "POST" && request.url === "/pairing/sessions") {
         return sendJson(response, 201, pairing.createSession());
       }

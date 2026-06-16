@@ -23,6 +23,15 @@ export function createRequestStore() {
         .sort((a, b) => b.sequence - a.sequence);
     },
 
+    summary() {
+      const allRequests = [...requests.values()];
+      return {
+        pending: allRequests.filter((request) => request.status === "pending").length,
+        resolved: allRequests.filter((request) => request.status === "resolved").length,
+        total: allRequests.length,
+      };
+    },
+
     resolve(input) {
       const response = normalizeAgentResponse(input);
       const request = requests.get(response.requestId);

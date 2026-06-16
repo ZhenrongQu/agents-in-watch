@@ -69,6 +69,81 @@ test("returns 400 for invalid request payloads", async () => {
   }
 });
 
+test("reports helper status and request counts", async () => {
+  const app = createServer({ authRequired: true });
+  const baseUrl = await listen(app);
+
+  try {
+    const statusBeforeResponse = await fetch(`${baseUrl}/status`);
+    const statusBefore = await statusBeforeResponse.json();
+
+    assert.equal(statusBeforeResponse.status, 200);
+    assert.equal(statusBefore.ok, true);
+    assert.equal(statusBefore.service, "agents-in-watch-helper");
+    assert.equal(statusBefore.authRequired, true);
+    assert.equal(statusBefore.requests.pending, 0);
+    assert.equal(statusBefore.requests.resolved, 0);
+    assert.equal(statusBefore.requests.total, 0);
+
+    const sessionResponse = await fetch(`${baseUrl}/pairing/sessions`, { method: "POST" });
+    const session = await sessionResponse.json();
+    const claimResponse = await fetch(`${baseUrl}/pairing/claims`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code: session.code, deviceName: "Smoke iPhone" }),
+    });
+    const claim = await claimResponse.json();
+    const approveResponse = await fetch(`${baseUrl}/pairing/claims/${claim.id}/approve`, {
+      method: "POST",
+    });
+    const approved = await approveResponse.json();
+
+    const createResponse = await fetch(`${baseUrl}/requests`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${approved.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        agentType: "claude-code",
+        projectName: "payments-api",
+        computerName: "work-mac",
+        sessionId: "session-1",
+        requestType: "approval",
+        title: "Allow command",
+        watchSummary: "Claude wants to run pnpm test",
+        phoneContext: "Command: pnpm test",
+        actions: ["allow", "deny"],
+        riskLevel: "low",
+      }),
+    });
+    const created = await createResponse.json();
+
+    const statusPendingResponse = await fetch(`${baseUrl}/status`);
+    const statusPending = await statusPendingResponse.json();
+    assert.equal(statusPending.requests.pending, 1);
+    assert.equal(statusPending.requests.resolved, 0);
+    assert.equal(statusPending.requests.total, 1);
+
+    await fetch(`${baseUrl}/requests/${created.id}/response`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${approved.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ action: "allow" }),
+    });
+
+    const statusResolvedResponse = await fetch(`${baseUrl}/status`);
+    const statusResolved = await statusResolvedResponse.json();
+    assert.equal(statusResolved.requests.pending, 0);
+    assert.equal(statusResolved.requests.resolved, 1);
+    assert.equal(statusResolved.requests.total, 1);
+  } finally {
+    await close(app);
+  }
+});
+
 test("pairs a device and uses its token for request APIs", async () => {
   const app = createServer({ authRequired: true });
   const baseUrl = await listen(app);
