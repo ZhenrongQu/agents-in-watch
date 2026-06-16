@@ -2,6 +2,10 @@ import Foundation
 
 public struct PendingRequestsResponse: Decodable, Equatable, Sendable {
     public let requests: [AgentRequest]
+
+    public init(requests: [AgentRequest]) {
+        self.requests = requests
+    }
 }
 
 public struct AgentRequest: Decodable, Equatable, Identifiable, Sendable {
@@ -19,6 +23,38 @@ public struct AgentRequest: Decodable, Equatable, Identifiable, Sendable {
     public let status: RequestStatus
     public let createdAt: Date
     public let expiresAt: Date?
+
+    public init(
+        id: String,
+        agentType: AgentType,
+        projectName: String,
+        computerName: String,
+        sessionId: String,
+        requestType: RequestType,
+        title: String,
+        watchSummary: String,
+        phoneContext: String,
+        actions: [RequestAction],
+        riskLevel: RiskLevel,
+        status: RequestStatus,
+        createdAt: Date,
+        expiresAt: Date?
+    ) {
+        self.id = id
+        self.agentType = agentType
+        self.projectName = projectName
+        self.computerName = computerName
+        self.sessionId = sessionId
+        self.requestType = requestType
+        self.title = title
+        self.watchSummary = watchSummary
+        self.phoneContext = phoneContext
+        self.actions = actions
+        self.riskLevel = riskLevel
+        self.status = status
+        self.createdAt = createdAt
+        self.expiresAt = expiresAt
+    }
 }
 
 public enum AgentType: String, Decodable, Equatable, Sendable {
@@ -58,6 +94,20 @@ public struct PairingClaim: Decodable, Equatable, Sendable {
     public let deviceName: String
     public let status: PairingClaimStatus
     public let token: String?
+
+    public init(
+        id: String,
+        pairingSessionId: String,
+        deviceName: String,
+        status: PairingClaimStatus,
+        token: String?
+    ) {
+        self.id = id
+        self.pairingSessionId = pairingSessionId
+        self.deviceName = deviceName
+        self.status = status
+        self.token = token
+    }
 }
 
 public enum PairingClaimStatus: String, Decodable, Equatable, Sendable {
