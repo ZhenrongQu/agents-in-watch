@@ -18,6 +18,7 @@ public final class CompanionViewModel: ObservableObject {
     @Published public private(set) var isLoading: Bool
     @Published public private(set) var errorMessage: String?
 
+    private let credentialStore: any PairingCredentialStore
     private let clientFactory: @Sendable (URL) -> any HelperClientProtocol
     private var client: (any HelperClientProtocol)?
 
@@ -25,16 +26,26 @@ public final class CompanionViewModel: ObservableObject {
         helperURLText: String = "http://127.0.0.1:42731",
         pairingCode: String = "",
         deviceName: String = "iPhone",
+        credentialStore: any PairingCredentialStore = KeychainPairingCredentialStore(),
         clientFactory: @escaping @Sendable (URL) -> any HelperClientProtocol = { HelperClient(baseURL: $0) }
     ) {
         self.helperURLText = helperURLText
         self.pairingCode = pairingCode
         self.deviceName = deviceName
+        self.credentialStore = credentialStore
         self.clientFactory = clientFactory
         self.phase = .disconnected
         self.pendingRequests = []
         self.isLoading = false
         self.errorMessage = nil
+
+        do {
+            if let credential = try credentialStore.load() {
+                restore(credential)
+            }
+        } catch {
+            self.errorMessage = error.localizedDescription
+        }
     }
 
     public func claimPairing() async {
@@ -48,12 +59,14 @@ public final class CompanionViewModel: ObservableObject {
                 throw CompanionViewModelError.missingPairingCode
             }
 
-            let nextClient = clientFactory(url)
+            var nextClient = clientFactory(url)
             let claim = try await nextClient.claimPairing(code: code, deviceName: deviceName)
             client = nextClient
 
             if claim.status == .approved, let token = claim.token {
-                client?.bearerToken = token
+                nextClient.bearerToken = token
+                client = nextClient
+                try credentialStore.save(StoredPairingCredential(helperURL: url, bearerToken: token))
                 phase = .connected
                 try await loadPendingRequestsFromClient()
             } else {
@@ -73,8 +86,12 @@ public final class CompanionViewModel: ObservableObject {
 
             let claim = try await activeClient.refreshClaim(id: claimId)
             if claim.status == .approved, let token = claim.token {
+                guard let helperURL = URL(string: helperURLText), helperURL.scheme != nil, helperURL.host != nil else {
+                    throw CompanionViewModelError.invalidHelperURL
+                }
                 activeClient.bearerToken = token
                 client = activeClient
+                try credentialStore.save(StoredPairingCredential(helperURL: helperURL, bearerToken: token))
                 phase = .connected
                 try await loadPendingRequestsFromClient()
             }
@@ -106,6 +123,7 @@ public final class CompanionViewModel: ObservableObject {
         phase = .disconnected
         pendingRequests = []
         errorMessage = nil
+        try? credentialStore.clear()
     }
 
     private func loadPendingRequestsFromClient() async throws {
@@ -113,6 +131,14 @@ public final class CompanionViewModel: ObservableObject {
             throw CompanionViewModelError.notPaired
         }
         pendingRequests = try await activeClient.listPendingRequests()
+    }
+
+    private func restore(_ credential: StoredPairingCredential) {
+        helperURLText = credential.helperURL.absoluteString
+        var restoredClient = clientFactory(credential.helperURL)
+        restoredClient.bearerToken = credential.bearerToken
+        client = restoredClient
+        phase = .connected
     }
 
     private func runLoading(_ operation: () async throws -> Void) async {

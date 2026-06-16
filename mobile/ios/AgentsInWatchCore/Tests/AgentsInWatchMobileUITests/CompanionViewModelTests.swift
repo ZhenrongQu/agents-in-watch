@@ -6,7 +6,7 @@ import Testing
 @MainActor
 struct CompanionViewModelTests {
     @Test func startsDisconnected() {
-        let model = CompanionViewModel()
+        let model = CompanionViewModel(credentialStore: InMemoryPairingCredentialStore())
 
         #expect(model.phase == .disconnected)
         #expect(model.pendingRequests.isEmpty)
@@ -27,6 +27,7 @@ struct CompanionViewModelTests {
             helperURLText: "http://127.0.0.1:42731",
             pairingCode: "123456",
             deviceName: "Quinn iPhone",
+            credentialStore: InMemoryPairingCredentialStore(),
             clientFactory: { _ in fakeClient }
         )
 
@@ -60,6 +61,7 @@ struct CompanionViewModelTests {
             helperURLText: "http://127.0.0.1:42731",
             pairingCode: "123456",
             deviceName: "Quinn iPhone",
+            credentialStore: InMemoryPairingCredentialStore(),
             clientFactory: { _ in fakeClient }
         )
 
@@ -94,6 +96,7 @@ struct CompanionViewModelTests {
             helperURLText: "http://127.0.0.1:42731",
             pairingCode: "123456",
             deviceName: "Quinn iPhone",
+            credentialStore: InMemoryPairingCredentialStore(),
             clientFactory: { _ in fakeClient }
         )
 
@@ -105,6 +108,74 @@ struct CompanionViewModelTests {
         #expect(fakeClient.respondedResponse == RequestResponse(action: .allow))
         #expect(fakeClient.listPendingRequestsCallCount == 2)
         #expect(model.pendingRequests.isEmpty)
+    }
+
+    @Test func startsConnectedWhenCredentialExists() async {
+        let request = sampleRequest(id: "request-1")
+        let store = InMemoryPairingCredentialStore(
+            credential: StoredPairingCredential(
+                helperURL: URL(string: "http://127.0.0.1:42731")!,
+                bearerToken: "saved-token"
+            )
+        )
+        let fakeClient = FakeClient()
+        fakeClient.pendingRequestResults = [[request]]
+        let model = CompanionViewModel(
+            credentialStore: store,
+            clientFactory: { _ in fakeClient }
+        )
+
+        await model.loadPendingRequests()
+
+        #expect(model.phase == .connected)
+        #expect(model.helperURLText == "http://127.0.0.1:42731")
+        #expect(fakeClient.bearerToken == "saved-token")
+        #expect(model.pendingRequests == [request])
+    }
+
+    @Test func savesApprovedCredentialAfterPairingApproval() async throws {
+        let store = InMemoryPairingCredentialStore()
+        let fakeClient = FakeClient()
+        fakeClient.claimPairingResult = PairingClaim(
+            id: "claim-1",
+            pairingSessionId: "session-1",
+            deviceName: "Quinn iPhone",
+            status: .approved,
+            token: "approved-token"
+        )
+        fakeClient.pendingRequestResults = [[]]
+        let model = CompanionViewModel(
+            helperURLText: "http://127.0.0.1:42731",
+            pairingCode: "123456",
+            deviceName: "Quinn iPhone",
+            credentialStore: store,
+            clientFactory: { _ in fakeClient }
+        )
+
+        await model.claimPairing()
+
+        #expect(try store.load() == StoredPairingCredential(
+            helperURL: URL(string: "http://127.0.0.1:42731")!,
+            bearerToken: "approved-token"
+        ))
+    }
+
+    @Test func clearsSavedCredentialOnDisconnect() async throws {
+        let store = InMemoryPairingCredentialStore(
+            credential: StoredPairingCredential(
+                helperURL: URL(string: "http://127.0.0.1:42731")!,
+                bearerToken: "saved-token"
+            )
+        )
+        let model = CompanionViewModel(
+            credentialStore: store,
+            clientFactory: { _ in FakeClient() }
+        )
+
+        model.disconnect()
+
+        #expect(try store.load() == nil)
+        #expect(model.phase == .disconnected)
     }
 }
 
