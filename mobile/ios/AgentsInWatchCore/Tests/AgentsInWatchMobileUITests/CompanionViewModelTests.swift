@@ -250,6 +250,21 @@ struct CompanionViewModelTests {
 
         #expect(model.watchStatus == .ready)
     }
+
+    @Test func requestsNotificationAuthorizationOnStart() async {
+        let notificationBridge = FakeNotificationBridge(status: .notDetermined)
+        let model = CompanionViewModel(
+            credentialStore: InMemoryPairingCredentialStore(),
+            notificationBridge: notificationBridge
+        )
+
+        for _ in 0..<5 {
+            await Task.yield()
+        }
+
+        #expect(notificationBridge.authorizationRequestCount == 1)
+        #expect(model.notificationStatus == .ready)
+    }
 }
 
 private final class FakeClient: HelperClientProtocol, @unchecked Sendable {
@@ -331,6 +346,31 @@ private final class FakeWatchRequestBridge: WatchRequestBridge, @unchecked Senda
     func simulateStatus(_ status: WatchRequestBridgeStatus) {
         self.status = status
         statusHandler?(status)
+    }
+}
+
+private final class FakeNotificationBridge: NotificationBridge, @unchecked Sendable {
+    private(set) var status: NotificationBridgeStatus
+    private(set) var authorizationRequestCount = 0
+    private(set) var notifiedRequests: [AgentRequest] = []
+    private var statusHandler: (@Sendable (NotificationBridgeStatus) -> Void)?
+
+    init(status: NotificationBridgeStatus = .notDetermined) {
+        self.status = status
+    }
+
+    func requestAuthorization() async {
+        authorizationRequestCount += 1
+        status = .ready
+        statusHandler?(.ready)
+    }
+
+    func notifyNewRequest(_ request: AgentRequest) async {
+        notifiedRequests.append(request)
+    }
+
+    func setStatusHandler(_ handler: @escaping @Sendable (NotificationBridgeStatus) -> Void) {
+        statusHandler = handler
     }
 }
 

@@ -18,9 +18,11 @@ public final class CompanionViewModel: ObservableObject {
     @Published public private(set) var isLoading: Bool
     @Published public private(set) var errorMessage: String?
     @Published public private(set) var watchStatus: WatchRequestBridgeStatus
+    @Published public private(set) var notificationStatus: NotificationBridgeStatus
 
     private let credentialStore: any PairingCredentialStore
     private let watchBridge: any WatchRequestBridge
+    private let notificationBridge: any NotificationBridge
     private let clientFactory: @Sendable (URL) -> any HelperClientProtocol
     private var client: (any HelperClientProtocol)?
 
@@ -30,6 +32,7 @@ public final class CompanionViewModel: ObservableObject {
         deviceName: String = "iPhone",
         credentialStore: any PairingCredentialStore = KeychainPairingCredentialStore(),
         watchBridge: any WatchRequestBridge = DefaultWatchRequestBridgeFactory.make(),
+        notificationBridge: any NotificationBridge = DefaultNotificationBridgeFactory.make(),
         clientFactory: @escaping @Sendable (URL) -> any HelperClientProtocol = { HelperClient(baseURL: $0) }
     ) {
         self.helperURLText = helperURLText
@@ -37,12 +40,14 @@ public final class CompanionViewModel: ObservableObject {
         self.deviceName = deviceName
         self.credentialStore = credentialStore
         self.watchBridge = watchBridge
+        self.notificationBridge = notificationBridge
         self.clientFactory = clientFactory
         self.phase = .disconnected
         self.pendingRequests = []
         self.isLoading = false
         self.errorMessage = nil
         self.watchStatus = watchBridge.status
+        self.notificationStatus = notificationBridge.status
 
         do {
             if let credential = try credentialStore.load() {
@@ -61,6 +66,14 @@ public final class CompanionViewModel: ObservableObject {
             Task { @MainActor [weak self] in
                 self?.watchStatus = status
             }
+        }
+        notificationBridge.setStatusHandler { [weak self] status in
+            Task { @MainActor [weak self] in
+                self?.notificationStatus = status
+            }
+        }
+        Task {
+            await notificationBridge.requestAuthorization()
         }
     }
 
