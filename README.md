@@ -10,6 +10,7 @@ The current implementation is the first desktop-helper slice. It can:
 - Pair a device and protect request APIs with bearer-token auth.
 - Translate Claude Code hook payloads into the shared request model.
 - Surface lightweight iPhone and Watch connectivity diagnostics while testing real devices.
+- Report helper status and run a local Claude Code-style smoke test.
 
 It does not yet include packaged desktop installers, Codex desktop adapter, Watch notifications, or background retry queues.
 
@@ -31,6 +32,40 @@ The helper requires pairing auth by default. For local development only, you can
 ```bash
 AGENTS_IN_WATCH_AUTH_REQUIRED=0 npm start
 ```
+
+## Five-Minute Local Verification
+
+Use this flow to prove the desktop side can receive a Claude Code-style request before opening Xcode:
+
+1. Start the helper:
+
+```bash
+npm start
+```
+
+2. In another terminal, create and approve a pairing token using the `Pair a Device` commands below.
+
+3. Export the token and helper URL:
+
+```bash
+export AGENTS_IN_WATCH_TOKEN=PASTE_TOKEN_HERE
+export AGENTS_IN_WATCH_HELPER_URL=http://127.0.0.1:42731
+export COMPUTER_NAME="$(hostname)"
+```
+
+4. Run the smoke test:
+
+```bash
+npm run smoke:claude-code
+```
+
+5. Check helper status:
+
+```bash
+curl http://127.0.0.1:42731/status
+```
+
+The smoke test creates a synthetic Claude Code `PermissionRequest`. If it succeeds, the helper has at least one pending request ready for the iPhone companion to fetch and forward to the Watch.
 
 ## Pair a Device
 
