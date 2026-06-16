@@ -10,7 +10,7 @@ The current implementation is the first desktop-helper slice. It can:
 - Pair a device and protect request APIs with bearer-token auth.
 - Translate Claude Code hook payloads into the shared request model.
 
-It does not yet include a standalone Xcode app target, Apple Watch app, packaged desktop installer, or Codex desktop adapter.
+It does not yet include an Apple Watch app, packaged desktop installer, or Codex desktop adapter.
 
 ## Run
 
@@ -109,6 +109,20 @@ scripts/claude-code-hook.js
 
 Claude Code hook configuration will be documented after the hook behavior is verified against a live Claude Code session.
 
+## iPhone App
+
+The repository includes a minimal Xcode iPhone app target that hosts the companion SwiftUI interface.
+
+Open:
+
+```bash
+open mobile/ios/AgentsInWatch.xcodeproj
+```
+
+Select the `AgentsInWatch` scheme, choose an iPhone simulator or device, and run. The app uses the local Swift package at `mobile/ios/AgentsInWatchCore`.
+
+Full app builds require Xcode. The Command Line Tools package alone is enough for `swift test`, but not enough for `xcodebuild` or simulator runs.
+
 ## iPhone Companion Core
 
 The repository now includes a Swift Package for the iPhone companion core:
@@ -118,7 +132,7 @@ cd mobile/ios/AgentsInWatchCore
 swift test
 ```
 
-The package currently contains tested models, a helper API client, and a minimal SwiftUI companion interface. It does not yet include a standalone Xcode app target, QR scanning, Keychain token storage, or WatchConnectivity.
+The package currently contains tested models, a helper API client, a minimal SwiftUI companion interface, and Keychain-backed pairing credential storage. It does not yet include QR scanning, WatchConnectivity, or simulator UI automation.
 
 ## Safety
 

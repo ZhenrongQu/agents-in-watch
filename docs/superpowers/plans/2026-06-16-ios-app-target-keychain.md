@@ -363,10 +363,10 @@ Run:
 
 ```bash
 plutil -lint mobile/ios/AgentsInWatch.xcodeproj/project.pbxproj
-plutil -lint mobile/ios/AgentsInWatch.xcodeproj/xcshareddata/xcschemes/AgentsInWatch.xcscheme
+xmllint --noout mobile/ios/AgentsInWatch.xcodeproj/xcshareddata/xcschemes/AgentsInWatch.xcscheme
 ```
 
-Expected: both files report `OK`.
+Expected: the project file reports `OK` and `xmllint` exits with no output.
 
 - [ ] **Step 4: Commit**
 
@@ -422,10 +422,10 @@ Run:
 
 ```bash
 plutil -lint mobile/ios/AgentsInWatch.xcodeproj/project.pbxproj
-plutil -lint mobile/ios/AgentsInWatch.xcodeproj/xcshareddata/xcschemes/AgentsInWatch.xcscheme
+xmllint --noout mobile/ios/AgentsInWatch.xcodeproj/xcshareddata/xcschemes/AgentsInWatch.xcscheme
 ```
 
-Expected: both files report `OK`.
+Expected: the project file reports `OK` and `xmllint` exits with no output.
 
 - [ ] **Step 4: Commit**
 
@@ -436,7 +436,7 @@ git commit -m "docs: document iPhone app target"
 
 ## Verification Notes
 
-The current local machine has Xcode Command Line Tools active, not full Xcode, so `xcodebuild` cannot verify the iOS app target here. This plan uses SwiftPM tests for the reusable app logic and `plutil` for Xcode project file syntax. A later pass on a machine with full Xcode should run:
+The current local machine has Xcode Command Line Tools active, not full Xcode, so `xcodebuild` cannot verify the iOS app target here. This plan uses SwiftPM tests for the reusable app logic, `plutil` for the Xcode project file, and `xmllint` for the Xcode scheme XML. A later pass on a machine with full Xcode should run:
 
 ```bash
 xcodebuild -project mobile/ios/AgentsInWatch.xcodeproj -scheme AgentsInWatch -destination 'platform=iOS Simulator,name=iPhone 15' build
