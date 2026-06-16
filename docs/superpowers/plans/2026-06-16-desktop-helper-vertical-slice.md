@@ -359,10 +359,14 @@ import {
 
 export function createRequestStore() {
   const requests = new Map();
+  let sequence = 0;
 
   return {
     add(input) {
-      const request = normalizeAgentRequest(input);
+      const request = {
+        ...normalizeAgentRequest(input),
+        sequence: ++sequence,
+      };
       requests.set(request.id, request);
       return request;
     },
@@ -370,7 +374,7 @@ export function createRequestStore() {
     listPending() {
       return [...requests.values()]
         .filter((request) => request.status === "pending")
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        .sort((a, b) => b.sequence - a.sequence);
     },
 
     resolve(input) {
