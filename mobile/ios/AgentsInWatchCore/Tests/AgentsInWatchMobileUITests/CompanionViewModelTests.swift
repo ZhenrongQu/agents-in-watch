@@ -113,6 +113,50 @@ struct CompanionViewModelTests {
         #expect(watchBridge.publishedRequests == [[request], []])
     }
 
+    @Test func routesWatchResponseToMatchingPendingRequest() async {
+        let request = sampleRequest(id: "request-1")
+        let fakeClient = FakeClient()
+        let watchBridge = FakeWatchRequestBridge()
+        fakeClient.claimPairingResult = PairingClaim(
+            id: "claim-1",
+            pairingSessionId: "session-1",
+            deviceName: "Quinn iPhone",
+            status: .pendingApproval,
+            token: nil
+        )
+        fakeClient.refreshClaimResult = PairingClaim(
+            id: "claim-1",
+            pairingSessionId: "session-1",
+            deviceName: "Quinn iPhone",
+            status: .approved,
+            token: "approved-token"
+        )
+        fakeClient.pendingRequestResults = [[request], []]
+        let model = CompanionViewModel(
+            helperURLText: "http://127.0.0.1:42731",
+            pairingCode: "123456",
+            deviceName: "Quinn iPhone",
+            credentialStore: InMemoryPairingCredentialStore(),
+            watchBridge: watchBridge,
+            clientFactory: { _ in fakeClient }
+        )
+
+        await model.claimPairing()
+        await model.refreshPairing()
+        watchBridge.simulateResponse(WatchRequestResponse(
+            requestId: "request-1",
+            action: .deny,
+            message: "not now"
+        ))
+        for _ in 0..<5 {
+            await Task.yield()
+        }
+
+        #expect(fakeClient.respondedRequestId == "request-1")
+        #expect(fakeClient.respondedResponse == RequestResponse(action: .deny, message: "not now"))
+        #expect(model.pendingRequests.isEmpty)
+    }
+
     @Test func startsConnectedWhenCredentialExists() async {
         let request = sampleRequest(id: "request-1")
         let watchBridge = FakeWatchRequestBridge()
@@ -240,9 +284,18 @@ private final class FakeClient: HelperClientProtocol, @unchecked Sendable {
 
 private final class FakeWatchRequestBridge: WatchRequestBridge, @unchecked Sendable {
     var publishedRequests: [[AgentRequest]] = []
+    private var responseHandler: (@Sendable (WatchRequestResponse) -> Void)?
 
     func publish(_ requests: [AgentRequest]) {
         publishedRequests.append(requests)
+    }
+
+    func setResponseHandler(_ handler: @escaping @Sendable (WatchRequestResponse) -> Void) {
+        responseHandler = handler
+    }
+
+    func simulateResponse(_ response: WatchRequestResponse) {
+        responseHandler?(response)
     }
 }
 

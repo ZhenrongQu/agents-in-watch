@@ -6,12 +6,15 @@ import WatchConnectivity
 
 public protocol WatchRequestBridge: Sendable {
     func publish(_ requests: [AgentRequest])
+    func setResponseHandler(_ handler: @escaping @Sendable (WatchRequestResponse) -> Void)
 }
 
 public struct NoopWatchRequestBridge: WatchRequestBridge {
     public init() {}
 
     public func publish(_ requests: [AgentRequest]) {}
+
+    public func setResponseHandler(_ handler: @escaping @Sendable (WatchRequestResponse) -> Void) {}
 }
 
 public enum DefaultWatchRequestBridgeFactory {
@@ -27,6 +30,7 @@ public enum DefaultWatchRequestBridgeFactory {
 #if canImport(WatchConnectivity)
 public final class WatchConnectivityRequestBridge: NSObject, WatchRequestBridge, WCSessionDelegate, @unchecked Sendable {
     private let session: WCSession?
+    private var responseHandler: (@Sendable (WatchRequestResponse) -> Void)?
 
     public override convenience init() {
         self.init(session: WCSession.isSupported() ? WCSession.default : nil)
@@ -47,6 +51,20 @@ public final class WatchConnectivityRequestBridge: NSObject, WatchRequestBridge,
             return
         }
         try? session.updateApplicationContext(context)
+    }
+
+    public func setResponseHandler(_ handler: @escaping @Sendable (WatchRequestResponse) -> Void) {
+        responseHandler = handler
+    }
+
+    public func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        guard let response = try? WatchConnectivityPayload.decodeResponse(from: message) else {
+            return
+        }
+        guard let response else {
+            return
+        }
+        responseHandler?(response)
     }
 
     public func session(

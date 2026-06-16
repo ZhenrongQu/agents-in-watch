@@ -49,6 +49,12 @@ public final class CompanionViewModel: ObservableObject {
         } catch {
             self.errorMessage = error.localizedDescription
         }
+
+        watchBridge.setResponseHandler { [weak self] response in
+            Task { @MainActor [weak self] in
+                await self?.handleWatchResponse(response)
+            }
+        }
     }
 
     public func claimPairing() async {
@@ -144,6 +150,13 @@ public final class CompanionViewModel: ObservableObject {
         restoredClient.bearerToken = credential.bearerToken
         client = restoredClient
         phase = .connected
+    }
+
+    private func handleWatchResponse(_ response: WatchRequestResponse) async {
+        guard let request = pendingRequests.first(where: { $0.id == response.requestId }) else {
+            return
+        }
+        await send(action: response.action, for: request, message: response.message)
     }
 
     private func runLoading(_ operation: () async throws -> Void) async {
