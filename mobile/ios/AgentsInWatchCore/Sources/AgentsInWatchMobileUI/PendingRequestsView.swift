@@ -22,6 +22,14 @@ struct PendingRequestsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Auto Refresh") {
+                Label(model.autoRefreshStatus.title, systemImage: "arrow.triangle.2.circlepath")
+                    .font(.subheadline)
+                Text(model.autoRefreshStatus.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             if model.pendingRequests.isEmpty {
                 ContentUnavailableView(
                     "No Pending Requests",

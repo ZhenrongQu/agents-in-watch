@@ -12,6 +12,7 @@ The current implementation is the first desktop-helper slice. It can:
 - Surface lightweight iPhone and Watch connectivity diagnostics while testing real devices.
 - Report helper status and run a local Claude Code-style smoke test.
 - Schedule local request notifications from the iPhone companion.
+- Refresh pending requests automatically while the iPhone companion is open and connected.
 
 It does not yet include packaged desktop installers, Codex desktop adapter, notification action buttons, or background retry queues.
 
@@ -207,6 +208,8 @@ open mobile/ios/AgentsInWatch.xcodeproj
 Select the `AgentsInWatch` scheme, choose an iPhone simulator or device, and run. The app uses the local Swift package at `mobile/ios/AgentsInWatchCore`.
 
 The companion screen shows whether its Watch bridge is unavailable, activating, or ready, which helps verify the iPhone can publish pending requests to the Watch before testing agent approvals.
+
+When connected, the companion polls for pending requests while the app is open, then reuses the local notification and Watch bridge path for newly discovered requests.
 
 The companion asks for notification permission and schedules local alerts for newly discovered pending requests. The current notification MVP opens the app for review; it does not yet include notification action buttons or background retry guarantees.
 
