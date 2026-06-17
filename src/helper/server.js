@@ -66,6 +66,21 @@ export function createServer({
         return sendJson(response, 200, resolved);
       }
 
+      if (request.method === "GET" && request.url.startsWith("/agent-responses")) {
+        const url = new URL(request.url, "http://localhost");
+        return sendJson(response, 200, {
+          responses: store.listAgentResponses({
+            agentType: url.searchParams.get("agentType") ?? "",
+            sessionId: url.searchParams.get("sessionId") ?? "",
+          }),
+        });
+      }
+
+      const agentResponseAckMatch = request.url.match(/^\/agent-responses\/([^/]+)\/ack$/);
+      if (request.method === "POST" && agentResponseAckMatch) {
+        return sendJson(response, 200, store.ackAgentResponse(agentResponseAckMatch[1]));
+      }
+
       return sendJson(response, 404, { error: "not found" });
     } catch (error) {
       return sendJson(response, 400, { error: error.message });

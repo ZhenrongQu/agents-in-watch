@@ -208,6 +208,120 @@ test("pairs a device and uses its token for request APIs", async () => {
   }
 });
 
+test("lists and acknowledges agent responses over HTTP", async () => {
+  const app = createServer();
+  const baseUrl = await listen(app);
+
+  try {
+    const firstCreateResponse = await fetch(`${baseUrl}/requests`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        agentType: "claude-code",
+        projectName: "payments-api",
+        computerName: "work-mac",
+        sessionId: "session-1",
+        requestType: "approval",
+        title: "Allow command",
+        watchSummary: "Claude wants to run pnpm test",
+        phoneContext: "Command: pnpm test",
+        actions: ["allow", "deny"],
+        riskLevel: "low",
+      }),
+    });
+    const first = await firstCreateResponse.json();
+    const secondCreateResponse = await fetch(`${baseUrl}/requests`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        agentType: "codex-desktop",
+        projectName: "site",
+        computerName: "work-mac",
+        sessionId: "session-2",
+        requestType: "approval",
+        title: "Allow shell",
+        watchSummary: "Codex wants to run npm test",
+        phoneContext: "Command: npm test",
+        actions: ["allow", "deny"],
+        riskLevel: "low",
+      }),
+    });
+    const second = await secondCreateResponse.json();
+
+    await fetch(`${baseUrl}/requests/${first.id}/response`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "allow" }),
+    });
+    await fetch(`${baseUrl}/requests/${second.id}/response`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "deny" }),
+    });
+
+    const listResponse = await fetch(`${baseUrl}/agent-responses?agentType=codex-desktop&sessionId=session-2`);
+    const listed = await listResponse.json();
+
+    assert.equal(listResponse.status, 200);
+    assert.equal(listed.responses.length, 1);
+    assert.equal(listed.responses[0].requestId, second.id);
+    assert.equal(listed.responses[0].response.action, "deny");
+
+    const ackResponse = await fetch(`${baseUrl}/agent-responses/${listed.responses[0].id}/ack`, {
+      method: "POST",
+    });
+    const acknowledged = await ackResponse.json();
+
+    assert.equal(ackResponse.status, 200);
+    assert.equal(acknowledged.id, listed.responses[0].id);
+    assert.match(acknowledged.acknowledgedAt, /^\d{4}-\d{2}-\d{2}T/);
+
+    const afterAckResponse = await fetch(`${baseUrl}/agent-responses?agentType=codex-desktop`);
+    const afterAck = await afterAckResponse.json();
+    assert.deepEqual(afterAck.responses, []);
+  } finally {
+    await close(app);
+  }
+});
+
+test("returns clear error for missing agent response acknowledgement", async () => {
+  const app = createServer();
+  const baseUrl = await listen(app);
+
+  try {
+    const response = await fetch(`${baseUrl}/agent-responses/missing-response/ack`, {
+      method: "POST",
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(body.error, "response not found");
+  } finally {
+    await close(app);
+  }
+});
+
+test("protects agent response APIs when auth is required", async () => {
+  const app = createServer({ authRequired: true });
+  const baseUrl = await listen(app);
+
+  try {
+    const listResponse = await fetch(`${baseUrl}/agent-responses`);
+    const listBody = await listResponse.json();
+    const ackResponse = await fetch(`${baseUrl}/agent-responses/response-outbox-1/ack`, {
+      method: "POST",
+    });
+    const ackBody = await ackResponse.json();
+
+    assert.equal(listResponse.status, 401);
+    assert.equal(listBody.error, "missing bearer token");
+    assert.equal(ackResponse.status, 401);
+    assert.equal(ackBody.error, "missing bearer token");
+  } finally {
+    await close(app);
+  }
+});
+
 test("rejects request APIs without a bearer token when auth is required", async () => {
   const app = createServer({ authRequired: true });
   const baseUrl = await listen(app);
