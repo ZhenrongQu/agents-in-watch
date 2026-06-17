@@ -9,12 +9,13 @@ The current implementation is the first desktop-helper slice. It can:
 - Accept a response for a pending request.
 - Pair a device and protect request APIs with bearer-token auth.
 - Translate Claude Code hook payloads into the shared request model.
+- Translate Codex Desktop-style JSON events into the shared request model.
 - Surface lightweight iPhone and Watch connectivity diagnostics while testing real devices.
 - Report helper status and run a local Claude Code-style smoke test.
 - Schedule local request notifications from the iPhone companion.
 - Refresh pending requests automatically while the iPhone companion is open and connected.
 
-It does not yet include packaged desktop installers, Codex desktop adapter, notification action buttons, or background retry queues.
+It does not yet include packaged desktop installers, automatic Codex Desktop UI control, notification action buttons, or background retry queues.
 
 ## Run
 
@@ -194,6 +195,39 @@ printf '%s\n' '{
 ```
 
 If the command exits with `0`, open the iPhone app and refresh pending requests. The request should appear on the phone and then on the Watch when WatchConnectivity is ready.
+
+## Codex Desktop Adapter
+
+The Codex adapter is a safe local JSON bridge for MVP testing. It does not click Codex Desktop UI or automatically apply Watch responses back into a live Codex session yet.
+
+Export the helper settings:
+
+```bash
+export AGENTS_IN_WATCH_TOKEN=PASTE_TOKEN_HERE
+export AGENTS_IN_WATCH_HELPER_URL=http://127.0.0.1:42731
+export COMPUTER_NAME="$(hostname)"
+```
+
+Create a Codex-style approval request:
+
+```bash
+printf '%s\n' '{
+  "event": "approval_request",
+  "sessionId": "manual-codex-smoke-test",
+  "cwd": "'$PWD'",
+  "toolName": "shell",
+  "command": "npm test",
+  "reason": "Manual Agents in Watch Codex smoke test."
+}' | scripts/codex-desktop-hook.js
+```
+
+Or run the packaged smoke test:
+
+```bash
+npm run smoke:codex-desktop
+```
+
+If the command exits with `0`, open the iPhone app. The foreground auto-refresh loop should pick up the Codex request and publish it to the Watch when WatchConnectivity is ready.
 
 ## iPhone App
 
