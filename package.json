@@ -10,6 +10,7 @@
   "scripts": {
     "start": "node src/helper/server.js",
     "smoke:claude-code": "node scripts/smoke-claude-code.js",
+    "smoke:codex-desktop": "node scripts/smoke-codex-desktop.js",
     "test": "node --test"
   }
 }
