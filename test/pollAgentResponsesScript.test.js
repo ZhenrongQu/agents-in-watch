@@ -271,6 +271,18 @@ test("poller reports invalid helper JSON", async () => {
   }
 });
 
+test("poller help documents environment configuration", async () => {
+  const result = await runPoller({ args: ["--help"] });
+
+  assert.equal(result.code, 0);
+  assert.equal(result.stderr, "");
+  assert.match(result.stdout, /AGENTS_IN_WATCH_HELPER_URL/);
+  assert.match(result.stdout, /http:\/\/127\.0\.0\.1:42731/);
+  assert.match(result.stdout, /AGENTS_IN_WATCH_TOKEN/);
+  assert.match(result.stdout, /AGENTS_IN_WATCH_AGENT_TYPE/);
+  assert.match(result.stdout, /AGENTS_IN_WATCH_SESSION_ID/);
+});
+
 function runPoller({ args = [], env = {}, onStdout } = {}) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, ["scripts/poll-agent-responses.js", ...args], {

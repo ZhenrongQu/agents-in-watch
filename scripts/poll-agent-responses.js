@@ -6,7 +6,7 @@ try {
   const options = parseArgs(process.argv.slice(2), process.env);
 
   if (options.help) {
-    printUsage();
+    usage();
     process.exit(0);
   }
 
@@ -138,7 +138,7 @@ async function formatHttpError(response) {
   return `helper returned ${response.status} ${body}`;
 }
 
-function printUsage() {
+function usage() {
   console.log(`Usage: node scripts/poll-agent-responses.js [options]
 
 Options:
@@ -146,5 +146,11 @@ Options:
   --session-id <value>  Filter responses by session id
   --ack                 Acknowledge each printed response
   --help, -h            Show this help
+
+Environment:
+  AGENTS_IN_WATCH_HELPER_URL   Helper base URL (default: ${DEFAULT_HELPER_URL})
+  AGENTS_IN_WATCH_TOKEN        Bearer token for helper requests
+  AGENTS_IN_WATCH_AGENT_TYPE   Default agent type filter
+  AGENTS_IN_WATCH_SESSION_ID   Default session id filter
 `);
 }
