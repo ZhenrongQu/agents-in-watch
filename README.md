@@ -7,6 +7,7 @@ The current implementation is the first desktop-helper slice. It can:
 - Accept normalized pending agent requests over a local HTTP API.
 - List pending requests.
 - Accept a response for a pending request.
+- Expose resolved request responses through an adapter-facing outbox.
 - Pair a device and protect request APIs with bearer-token auth.
 - Translate Claude Code hook payloads into the shared request model.
 - Translate Codex Desktop-style JSON events into the shared request model.
@@ -135,6 +136,26 @@ curl -X POST http://127.0.0.1:42731/requests/REQUEST_ID/response \
   -H 'content-type: application/json' \
   -d '{ "action": "allow" }'
 ```
+
+## Response Outbox
+
+When the iPhone or Watch responds to a pending request, the helper resolves that request and creates an adapter-facing outbox item. Desktop adapters can poll this queue, handle the response, and acknowledge it after processing.
+
+List unacknowledged responses:
+
+```bash
+curl "http://127.0.0.1:42731/agent-responses?agentType=codex-desktop" \
+  -H "authorization: Bearer $TOKEN"
+```
+
+Acknowledge a response after the desktop adapter handles it:
+
+```bash
+curl -X POST http://127.0.0.1:42731/agent-responses/RESPONSE_OUTBOX_ID/ack \
+  -H "authorization: Bearer $TOKEN"
+```
+
+This outbox does not automatically click Codex Desktop or Claude Code UI. It gives adapter code a safe, structured place to pick up remote decisions.
 
 ## Claude Code Hook Bridge
 
