@@ -152,6 +152,10 @@ test("poller acknowledges each printed response with ack flag", async () => {
     });
 
     assert.equal(result.code, 0);
+    const lines = result.stdout.trim().split("\n").map((line) => JSON.parse(line));
+    assert.equal(lines.length, 2);
+    assert.equal(lines[0].id, "response-outbox-1");
+    assert.equal(lines[1].id, "response-outbox-2");
     assert.deepEqual(
       requests.map((request) => `${request.method} ${request.url}`),
       [
@@ -160,6 +164,40 @@ test("poller acknowledges each printed response with ack flag", async () => {
         "POST /agent-responses/response-outbox-2/ack",
       ]
     );
+  } finally {
+    await close(fakeHelper);
+  }
+});
+
+test("poller reports ack rejection details", async () => {
+  const fakeHelper = http.createServer(async (request, response) => {
+    if (request.method === "GET" && request.url === "/agent-responses") {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ responses: [{ id: "response-outbox-1" }] }));
+      return;
+    }
+
+    if (request.method === "POST" && request.url === "/agent-responses/response-outbox-1/ack") {
+      response.writeHead(500, { "content-type": "application/json" });
+      response.end(JSON.stringify({ error: "ack failed" }));
+      return;
+    }
+
+    response.writeHead(404, { "content-type": "application/json" });
+    response.end(JSON.stringify({ error: "not found" }));
+  });
+  const helperUrl = await listen(fakeHelper);
+
+  try {
+    const result = await runPoller({
+      args: ["--ack"],
+      env: { AGENTS_IN_WATCH_HELPER_URL: helperUrl },
+    });
+
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /failed to acknowledge response response-outbox-1/);
+    assert.match(result.stderr, /500/);
+    assert.match(result.stderr, /ack failed/);
   } finally {
     await close(fakeHelper);
   }
