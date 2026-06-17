@@ -7,10 +7,13 @@ test("poller prints matching responses as newline-delimited JSON", async () => {
   const requests = [];
   const fakeHelper = http.createServer(async (request, response) => {
     requests.push({ method: request.method, url: request.url, headers: request.headers });
+    const requestUrl = new URL(request.url, "http://helper.local");
 
     if (
       request.method === "GET" &&
-      request.url === "/agent-responses?agentType=codex-desktop&sessionId=session-1"
+      requestUrl.pathname === "/agent-responses" &&
+      requestUrl.searchParams.get("agentType") === "codex-desktop" &&
+      requestUrl.searchParams.get("sessionId") === "session-1"
     ) {
       response.writeHead(200, { "content-type": "application/json" });
       response.end(
@@ -54,6 +57,10 @@ test("poller prints matching responses as newline-delimited JSON", async () => {
     assert.equal(lines[0].id, "response-outbox-1");
     assert.equal(lines[1].response.action, "deny");
     assert.equal(requests.length, 1);
+    const requestUrl = new URL(requests[0].url, "http://helper.local");
+    assert.equal(requestUrl.pathname, "/agent-responses");
+    assert.equal(requestUrl.searchParams.get("agentType"), "codex-desktop");
+    assert.equal(requestUrl.searchParams.get("sessionId"), "session-1");
   } finally {
     await close(fakeHelper);
   }
@@ -80,7 +87,10 @@ test("poller uses environment filters and bearer token", async () => {
 
     assert.equal(result.code, 0);
     assert.equal(result.stdout, "");
-    assert.equal(requests[0].url, "/agent-responses?agentType=claude-code&sessionId=session-2");
+    const requestUrl = new URL(requests[0].url, "http://helper.local");
+    assert.equal(requestUrl.pathname, "/agent-responses");
+    assert.equal(requestUrl.searchParams.get("agentType"), "claude-code");
+    assert.equal(requestUrl.searchParams.get("sessionId"), "session-2");
     assert.equal(requests[0].headers.authorization, "Bearer token-123");
   } finally {
     await close(fakeHelper);
@@ -91,8 +101,9 @@ test("poller does not acknowledge responses without ack flag", async () => {
   const requests = [];
   const fakeHelper = http.createServer(async (request, response) => {
     requests.push({ method: request.method, url: request.url });
+    const requestUrl = new URL(request.url, "http://helper.local");
 
-    if (request.method === "GET" && request.url === "/agent-responses") {
+    if (request.method === "GET" && requestUrl.pathname === "/agent-responses") {
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify({ responses: [{ id: "response-outbox-1" }] }));
       return;
@@ -116,10 +127,12 @@ test("poller does not acknowledge responses without ack flag", async () => {
 
 test("poller acknowledges each printed response with ack flag", async () => {
   const requests = [];
+  let stdout = "";
   const fakeHelper = http.createServer(async (request, response) => {
     requests.push({ method: request.method, url: request.url });
+    const requestUrl = new URL(request.url, "http://helper.local");
 
-    if (request.method === "GET" && request.url === "/agent-responses") {
+    if (request.method === "GET" && requestUrl.pathname === "/agent-responses") {
       response.writeHead(200, { "content-type": "application/json" });
       response.end(
         JSON.stringify({
@@ -135,6 +148,10 @@ test("poller acknowledges each printed response with ack flag", async () => {
         request.url
       )
     ) {
+      const lines = parseJsonLines(stdout);
+      assert.equal(lines.length, 2);
+      assert.equal(lines[0].id, "response-outbox-1");
+      assert.equal(lines[1].id, "response-outbox-2");
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify({ ok: true }));
       return;
@@ -149,6 +166,9 @@ test("poller acknowledges each printed response with ack flag", async () => {
     const result = await runPoller({
       args: ["--ack"],
       env: { AGENTS_IN_WATCH_HELPER_URL: helperUrl },
+      onStdout: (currentStdout) => {
+        stdout = currentStdout;
+      },
     });
 
     assert.equal(result.code, 0);
@@ -170,14 +190,20 @@ test("poller acknowledges each printed response with ack flag", async () => {
 });
 
 test("poller reports ack rejection details", async () => {
+  let stdout = "";
   const fakeHelper = http.createServer(async (request, response) => {
-    if (request.method === "GET" && request.url === "/agent-responses") {
+    const requestUrl = new URL(request.url, "http://helper.local");
+
+    if (request.method === "GET" && requestUrl.pathname === "/agent-responses") {
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify({ responses: [{ id: "response-outbox-1" }] }));
       return;
     }
 
     if (request.method === "POST" && request.url === "/agent-responses/response-outbox-1/ack") {
+      const lines = parseJsonLines(stdout);
+      assert.equal(lines.length, 1);
+      assert.equal(lines[0].id, "response-outbox-1");
       response.writeHead(500, { "content-type": "application/json" });
       response.end(JSON.stringify({ error: "ack failed" }));
       return;
@@ -192,12 +218,18 @@ test("poller reports ack rejection details", async () => {
     const result = await runPoller({
       args: ["--ack"],
       env: { AGENTS_IN_WATCH_HELPER_URL: helperUrl },
+      onStdout: (currentStdout) => {
+        stdout = currentStdout;
+      },
     });
 
     assert.equal(result.code, 1);
     assert.match(result.stderr, /failed to acknowledge response response-outbox-1/);
     assert.match(result.stderr, /500/);
     assert.match(result.stderr, /ack failed/);
+    const lines = parseJsonLines(result.stdout);
+    assert.equal(lines.length, 1);
+    assert.equal(lines[0].id, "response-outbox-1");
   } finally {
     await close(fakeHelper);
   }
@@ -239,7 +271,7 @@ test("poller reports invalid helper JSON", async () => {
   }
 });
 
-function runPoller({ args = [], env = {} } = {}) {
+function runPoller({ args = [], env = {}, onStdout } = {}) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, ["scripts/poll-agent-responses.js", ...args], {
       env: { ...process.env, ...env },
@@ -249,12 +281,21 @@ function runPoller({ args = [], env = {} } = {}) {
     let stderr = "";
     child.stdout.on("data", (chunk) => {
       stdout += chunk;
+      onStdout?.(stdout);
     });
     child.stderr.on("data", (chunk) => {
       stderr += chunk;
     });
     child.on("close", (code) => resolve({ code, stdout, stderr }));
   });
+}
+
+function parseJsonLines(stdout) {
+  return stdout
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
 }
 
 function listen(server) {
