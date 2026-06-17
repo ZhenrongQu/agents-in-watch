@@ -111,6 +111,10 @@ async function fetchResponses(options, headers) {
 }
 
 async function acknowledgeResponse(helperUrl, responseId, headers) {
+  if (!responseId) {
+    throw new Error("failed to acknowledge response: response id is missing");
+  }
+
   const url = new URL(`/agent-responses/${encodeURIComponent(responseId)}/ack`, helperUrl);
 
   let response;

@@ -235,6 +235,41 @@ test("poller reports ack rejection details", async () => {
   }
 });
 
+test("poller reports missing response id before acknowledging", async () => {
+  const requests = [];
+  const fakeHelper = http.createServer(async (request, response) => {
+    requests.push({ method: request.method, url: request.url });
+    const requestUrl = new URL(request.url, "http://helper.local");
+
+    if (request.method === "GET" && requestUrl.pathname === "/agent-responses") {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ responses: [{}] }));
+      return;
+    }
+
+    response.writeHead(500, { "content-type": "application/json" });
+    response.end(JSON.stringify({ error: "unexpected ack" }));
+  });
+  const helperUrl = await listen(fakeHelper);
+
+  try {
+    const result = await runPoller({
+      args: ["--ack"],
+      env: { AGENTS_IN_WATCH_HELPER_URL: helperUrl },
+    });
+
+    assert.equal(result.code, 1);
+    assert.deepEqual(parseJsonLines(result.stdout), [{}]);
+    assert.match(result.stderr, /failed to acknowledge response: response id is missing/);
+    assert.deepEqual(
+      requests.map((request) => request.method),
+      ["GET"]
+    );
+  } finally {
+    await close(fakeHelper);
+  }
+});
+
 test("poller reports helper rejection details", async () => {
   const fakeHelper = http.createServer(async (_request, response) => {
     response.writeHead(401, { "content-type": "application/json" });
