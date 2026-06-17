@@ -157,6 +157,28 @@ curl -X POST http://127.0.0.1:42731/agent-responses/RESPONSE_OUTBOX_ID/ack \
 
 This outbox does not automatically click Codex Desktop or Claude Code UI. It gives adapter code a safe, structured place to pick up remote decisions.
 
+### Poll Agent Responses
+
+Use the poller script to fetch decisions that were made on iPhone or Apple Watch:
+
+```bash
+npm run poll:agent-responses -- --agent-type codex-desktop --session-id session-1
+npm run poll:agent-responses -- --agent-type claude-code --ack
+```
+
+The script prints one JSON response per line. By default it does not acknowledge responses, so the same decisions remain available for debugging. Add `--ack` only when an adapter is ready to consume the responses.
+
+The script uses the same helper settings as the hook scripts:
+
+```bash
+AGENTS_IN_WATCH_HELPER_URL=http://127.0.0.1:42731
+AGENTS_IN_WATCH_TOKEN=your-token
+AGENTS_IN_WATCH_AGENT_TYPE=codex-desktop
+AGENTS_IN_WATCH_SESSION_ID=session-1
+```
+
+This command fetches decisions from the helper. It does not yet click Codex Desktop or Claude Code UI controls automatically.
+
 ## Claude Code Hook Bridge
 
 The script `scripts/claude-code-hook.js` reads a Claude Code hook payload from stdin, translates it, and posts it to the helper. It supports Claude Code `PermissionRequest` and `Notification` events.
