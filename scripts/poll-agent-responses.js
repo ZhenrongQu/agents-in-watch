@@ -15,7 +15,7 @@ try {
     headers.authorization = `Bearer ${options.token}`;
   }
 
-  const responses = await fetchResponses(options, headers);
+  const responses = await waitForResponses(options, headers);
 
   for (const response of responses) {
     console.log(JSON.stringify(response));
@@ -39,8 +39,11 @@ function parseArgs(args, env) {
     agentType: env.AGENTS_IN_WATCH_AGENT_TYPE,
     helperUrl: env.AGENTS_IN_WATCH_HELPER_URL ?? DEFAULT_HELPER_URL,
     help: false,
+    pollIntervalMs: Number(env.AGENTS_IN_WATCH_POLL_INTERVAL_MS ?? 1000),
     sessionId: env.AGENTS_IN_WATCH_SESSION_ID,
+    timeoutMs: Number(env.AGENTS_IN_WATCH_TIMEOUT_MS ?? 300000),
     token: env.AGENTS_IN_WATCH_TOKEN,
+    wait: false,
   };
 
   for (let index = 0; index < args.length; index += 1) {
@@ -56,8 +59,19 @@ function parseArgs(args, env) {
       continue;
     }
 
+    if (arg === "--wait") {
+      options.wait = true;
+      continue;
+    }
+
     if (arg === "--agent-type") {
       options.agentType = readFlagValue(args, index, arg);
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--poll-interval-ms") {
+      options.pollIntervalMs = readPositiveInteger(readFlagValue(args, index, arg), arg);
       index += 1;
       continue;
     }
@@ -68,8 +82,17 @@ function parseArgs(args, env) {
       continue;
     }
 
+    if (arg === "--timeout-ms") {
+      options.timeoutMs = readPositiveInteger(readFlagValue(args, index, arg), arg);
+      index += 1;
+      continue;
+    }
+
     throw new Error(`unknown option: ${arg}`);
   }
+
+  options.pollIntervalMs = validatePositiveInteger(options.pollIntervalMs, "AGENTS_IN_WATCH_POLL_INTERVAL_MS");
+  options.timeoutMs = validatePositiveInteger(options.timeoutMs, "AGENTS_IN_WATCH_TIMEOUT_MS");
 
   return options;
 }
@@ -80,6 +103,34 @@ function readFlagValue(args, index, flag) {
     throw new Error(`missing value for ${flag}`);
   }
   return value;
+}
+
+function readPositiveInteger(value, name) {
+  return validatePositiveInteger(Number(value), name);
+}
+
+function validatePositiveInteger(value, name) {
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`${name} must be a positive integer`);
+  }
+  return value;
+}
+
+async function waitForResponses(options, headers) {
+  const deadline = Date.now() + options.timeoutMs;
+
+  while (true) {
+    const responses = await fetchResponses(options, headers);
+    if (responses.length > 0 || !options.wait) {
+      return responses;
+    }
+
+    if (Date.now() >= deadline) {
+      throw new Error(`timed out waiting for agent responses after ${options.timeoutMs}ms`);
+    }
+
+    await sleep(Math.min(options.pollIntervalMs, Math.max(0, deadline - Date.now())));
+  }
 }
 
 async function fetchResponses(options, headers) {
@@ -142,6 +193,12 @@ async function formatHttpError(response) {
   return `helper returned ${response.status} ${body}`;
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 function usage() {
   console.log(`Usage: node scripts/poll-agent-responses.js [options]
 
@@ -149,6 +206,9 @@ Options:
   --agent-type <value>  Filter responses by agent type
   --session-id <value>  Filter responses by session id
   --ack                 Acknowledge each printed response
+  --wait                Keep polling until a response is available
+  --poll-interval-ms    Delay between polls in wait mode (default: 1000)
+  --timeout-ms          Maximum wait duration in milliseconds (default: 300000)
   --help, -h            Show this help
 
 Environment:
@@ -156,5 +216,7 @@ Environment:
   AGENTS_IN_WATCH_TOKEN        Bearer token for helper requests
   AGENTS_IN_WATCH_AGENT_TYPE   Default agent type filter
   AGENTS_IN_WATCH_SESSION_ID   Default session id filter
+  AGENTS_IN_WATCH_POLL_INTERVAL_MS  Default wait poll interval
+  AGENTS_IN_WATCH_TIMEOUT_MS        Default wait timeout
 `);
 }

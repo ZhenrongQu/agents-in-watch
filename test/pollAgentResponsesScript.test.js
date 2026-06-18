@@ -189,6 +189,51 @@ test("poller acknowledges each printed response with ack flag", async () => {
   }
 });
 
+test("poller waits until a matching response is available", async () => {
+  const requests = [];
+  const fakeHelper = http.createServer(async (request, response) => {
+    requests.push({ method: request.method, url: request.url });
+    const requestUrl = new URL(request.url, "http://helper.local");
+
+    if (request.method === "GET" && requestUrl.pathname === "/agent-responses") {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          responses:
+            requests.filter((item) => item.method === "GET").length < 3
+              ? []
+              : [
+                  {
+                    id: "response-outbox-1",
+                    response: { action: "reply", message: "continue" },
+                  },
+                ],
+        })
+      );
+      return;
+    }
+
+    response.writeHead(404, { "content-type": "application/json" });
+    response.end(JSON.stringify({ error: "not found" }));
+  });
+  const helperUrl = await listen(fakeHelper);
+
+  try {
+    const result = await runPoller({
+      args: ["--wait", "--poll-interval-ms", "10", "--timeout-ms", "500"],
+      env: { AGENTS_IN_WATCH_HELPER_URL: helperUrl },
+    });
+
+    assert.equal(result.code, 0);
+    const lines = parseJsonLines(result.stdout);
+    assert.equal(lines.length, 1);
+    assert.equal(lines[0].response.message, "continue");
+    assert.equal(requests.filter((request) => request.method === "GET").length, 3);
+  } finally {
+    await close(fakeHelper);
+  }
+});
+
 test("poller reports ack rejection details", async () => {
   let stdout = "";
   const fakeHelper = http.createServer(async (request, response) => {

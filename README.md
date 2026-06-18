@@ -180,9 +180,12 @@ Use the poller script to fetch decisions that were made on iPhone or Apple Watch
 ```bash
 npm run poll:agent-responses -- --agent-type codex-desktop --session-id session-1
 npm run poll:agent-responses -- --agent-type claude-code --ack
+npm run poll:agent-responses -- --agent-type codex-desktop --session-id session-1 --wait --ack
 ```
 
 The script prints one JSON response per line. By default it does not acknowledge responses, so the same decisions remain available for debugging. Add `--ack` only when an adapter is ready to consume the responses.
+
+Add `--wait` when a desktop adapter should block until you answer on iPhone or Apple Watch. Wait mode polls until a matching response appears or the timeout is reached. The default timeout is five minutes.
 
 The script uses the same helper settings as the hook scripts:
 
@@ -191,6 +194,8 @@ AGENTS_IN_WATCH_HELPER_URL=http://127.0.0.1:42731
 AGENTS_IN_WATCH_TOKEN=your-token
 AGENTS_IN_WATCH_AGENT_TYPE=codex-desktop
 AGENTS_IN_WATCH_SESSION_ID=session-1
+AGENTS_IN_WATCH_POLL_INTERVAL_MS=1000
+AGENTS_IN_WATCH_TIMEOUT_MS=300000
 ```
 
 This command fetches decisions from the helper. It does not yet click Codex Desktop or Claude Code UI controls automatically.
