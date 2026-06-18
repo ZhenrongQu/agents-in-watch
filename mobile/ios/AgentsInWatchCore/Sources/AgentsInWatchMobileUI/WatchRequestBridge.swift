@@ -100,9 +100,6 @@ public final class WatchConnectivityRequestBridge: NSObject, WatchRequestBridge,
         guard let response = try? WatchConnectivityPayload.decodeResponse(from: message) else {
             return
         }
-        guard let response else {
-            return
-        }
         responseHandler?(response)
     }
 

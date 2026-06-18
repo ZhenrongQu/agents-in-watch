@@ -57,9 +57,9 @@ private struct WatchRequestRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack {
-                Text(request.projectName)
+                Text(request.title)
                     .font(.headline)
-                    .lineLimit(1)
+                    .lineLimit(2)
                 Spacer()
                 Circle()
                     .fill(riskColor)
@@ -70,7 +70,7 @@ private struct WatchRequestRow: View {
                 .font(.caption)
                 .lineLimit(3)
 
-            Text(request.agentType.rawValue)
+            Text("\(request.agentType.rawValue) - \(request.projectName)")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
 

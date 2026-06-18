@@ -1,3 +1,6 @@
 .superpowers/
 .worktrees/
 **/.build/
+**/.swiftpm/
+**/*.xcodeproj/project.xcworkspace/
+**/*.xcodeproj/xcuserdata/

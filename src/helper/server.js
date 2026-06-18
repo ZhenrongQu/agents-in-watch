@@ -1,11 +1,14 @@
 import http from "node:http";
+import { getPairingNetworkInfo } from "./networkInfo.js";
 import { createPairingManager } from "./pairingManager.js";
+import { renderPairingDashboardPage } from "./pairingDashboardPage.js";
 import { createRequestStore } from "./requestStore.js";
 
 export function createServer({
   store = createRequestStore(),
   pairing = createPairingManager(),
   authRequired = false,
+  networkInterfaces,
 } = {}) {
   return http.createServer(async (request, response) => {
     try {
@@ -22,6 +25,17 @@ export function createServer({
         });
       }
 
+      if (request.method === "GET" && request.url === "/pairing") {
+        return sendHtml(response, 200, renderPairingDashboardPage());
+      }
+
+      if (request.method === "GET" && request.url === "/pairing/network") {
+        return sendJson(response, 200, getPairingNetworkInfo({
+          hostHeader: request.headers.host ?? "",
+          interfaces: networkInterfaces,
+        }));
+      }
+
       if (request.method === "POST" && request.url === "/pairing/sessions") {
         return sendJson(response, 201, pairing.createSession());
       }
@@ -29,6 +43,10 @@ export function createServer({
       if (request.method === "POST" && request.url === "/pairing/claims") {
         const body = await readJson(request);
         return sendJson(response, 201, pairing.claimSession(body));
+      }
+
+      if (request.method === "GET" && request.url === "/pairing/claims") {
+        return sendJson(response, 200, { claims: pairing.listClaims() });
       }
 
       const approveMatch = request.url.match(/^\/pairing\/claims\/([^/]+)\/approve$/);
@@ -122,6 +140,13 @@ function sendJson(response, statusCode, body) {
     "content-type": "application/json; charset=utf-8",
   });
   response.end(JSON.stringify(body));
+}
+
+function sendHtml(response, statusCode, html) {
+  response.writeHead(statusCode, {
+    "content-type": "text/html; charset=utf-8",
+  });
+  response.end(html);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

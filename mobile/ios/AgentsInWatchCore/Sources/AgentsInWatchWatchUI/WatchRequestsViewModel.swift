@@ -24,15 +24,29 @@ public final class WatchRequestsViewModel: ObservableObject {
                 self?.responseStatus = status
             }
         }
+
+        responseBridge.setRequestsHandler { [weak self] requests in
+            Task { @MainActor [weak self] in
+                self?.apply(requests: requests)
+            }
+        }
+
+        if !responseBridge.currentRequests.isEmpty {
+            apply(requests: responseBridge.currentRequests)
+        }
     }
 
     public func apply(applicationContext: [String: Any]) {
         do {
-            requests = try WatchConnectivityPayload.decodeRequests(from: applicationContext)
-            errorMessage = nil
+            apply(requests: try WatchConnectivityPayload.decodeRequests(from: applicationContext))
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func apply(requests: [AgentRequest]) {
+        self.requests = requests
+        errorMessage = nil
     }
 
     public func send(action: RequestAction, for request: AgentRequest, message: String? = nil) {

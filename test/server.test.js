@@ -144,6 +144,55 @@ test("reports helper status and request counts", async () => {
   }
 });
 
+test("serves a local pairing dashboard without request auth", async () => {
+  const app = createServer({ authRequired: true });
+  const baseUrl = await listen(app);
+
+  try {
+    const response = await fetch(`${baseUrl}/pairing`);
+    const html = await response.text();
+
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("content-type"), /^text\/html/);
+    assert.match(html, /Agents in Watch/);
+    assert.match(html, /pairing-code/);
+    assert.match(html, /helper-url/);
+    assert.match(html, /\/pairing\/network/);
+    assert.match(html, /\/pairing\/sessions/);
+    assert.match(html, /\/pairing\/claims/);
+  } finally {
+    await close(app);
+  }
+});
+
+test("reports pairing network URLs without request auth", async () => {
+  const app = createServer({
+    authRequired: true,
+    networkInterfaces: {
+      en0: [
+        {
+          family: "IPv4",
+          address: "192.168.1.64",
+          internal: false,
+        },
+      ],
+    },
+  });
+  const baseUrl = await listen(app);
+  const port = new URL(baseUrl).port;
+
+  try {
+    const response = await fetch(`${baseUrl}/pairing/network`);
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.port, Number(port));
+    assert.equal(body.urls[0], `http://192.168.1.64:${port}`);
+  } finally {
+    await close(app);
+  }
+});
+
 test("pairs a device and uses its token for request APIs", async () => {
   const app = createServer({ authRequired: true });
   const baseUrl = await listen(app);
@@ -203,6 +252,38 @@ test("pairs a device and uses its token for request APIs", async () => {
     const pending = await listResponse.json();
     assert.equal(listResponse.status, 200);
     assert.equal(pending.requests[0].id, created.id);
+  } finally {
+    await close(app);
+  }
+});
+
+test("lists pending pairing claims for desktop approval", async () => {
+  const app = createServer({ authRequired: true });
+  const baseUrl = await listen(app);
+
+  try {
+    const startResponse = await fetch(`${baseUrl}/pairing/sessions`, { method: "POST" });
+    const session = await startResponse.json();
+
+    const claimResponse = await fetch(`${baseUrl}/pairing/claims`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        code: session.code,
+        deviceName: "Zhenrong iPhone",
+      }),
+    });
+    const claim = await claimResponse.json();
+
+    const listResponse = await fetch(`${baseUrl}/pairing/claims`);
+    const body = await listResponse.json();
+
+    assert.equal(listResponse.status, 200);
+    assert.equal(body.claims.length, 1);
+    assert.equal(body.claims[0].id, claim.id);
+    assert.equal(body.claims[0].deviceName, "Zhenrong iPhone");
+    assert.equal(body.claims[0].status, "pending-approval");
+    assert.equal(body.claims[0].token, undefined);
   } finally {
     await close(app);
   }

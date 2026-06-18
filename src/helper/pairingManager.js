@@ -49,6 +49,10 @@ export function createPairingManager({ now = () => new Date(), ttlMs = 300000 } 
       return claim;
     },
 
+    listClaims() {
+      return [...claims.values()].filter((claim) => claim.status === "pending-approval");
+    },
+
     approveClaim(id) {
       const claim = claims.get(id);
       if (!claim) {

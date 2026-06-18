@@ -73,6 +73,22 @@ The smoke test creates a synthetic Claude Code `PermissionRequest`. If it succee
 
 ## Pair a Device
 
+Open the local pairing dashboard:
+
+```text
+http://127.0.0.1:42731/pairing
+```
+
+For iPhone testing on the same Wi-Fi, start the helper with `AGENTS_IN_WATCH_HOST=0.0.0.0` and open the dashboard through the Mac's LAN address, for example:
+
+```text
+http://192.168.1.64:42731/pairing
+```
+
+The dashboard shows the iPhone server URL, including the Mac LAN address and port number, creates a pairing code, lists pending iPhone claims, and approves the selected device from the desktop.
+
+CLI pairing is also available:
+
 Start a pairing session:
 
 ```bash

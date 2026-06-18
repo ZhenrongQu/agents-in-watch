@@ -31,19 +31,24 @@ public struct WatchResponseBridgeStatus: Equatable, Sendable {
 
 public protocol WatchResponseBridge: Sendable {
     var status: WatchResponseBridgeStatus { get }
+    var currentRequests: [AgentRequest] { get }
 
     func send(_ response: WatchRequestResponse)
     func setStatusHandler(_ handler: @escaping @Sendable (WatchResponseBridgeStatus) -> Void)
+    func setRequestsHandler(_ handler: @escaping @Sendable ([AgentRequest]) -> Void)
 }
 
 public struct NoopWatchResponseBridge: WatchResponseBridge {
     public init() {}
 
     public var status: WatchResponseBridgeStatus { .unavailable }
+    public var currentRequests: [AgentRequest] { [] }
 
     public func send(_ response: WatchRequestResponse) {}
 
     public func setStatusHandler(_ handler: @escaping @Sendable (WatchResponseBridgeStatus) -> Void) {}
+
+    public func setRequestsHandler(_ handler: @escaping @Sendable ([AgentRequest]) -> Void) {}
 }
 
 public enum DefaultWatchResponseBridgeFactory {
@@ -60,7 +65,14 @@ public enum DefaultWatchResponseBridgeFactory {
 public final class WatchConnectivityResponseBridge: NSObject, WatchResponseBridge, WCSessionDelegate, @unchecked Sendable {
     private let session: WCSession?
     private var statusHandler: (@Sendable (WatchResponseBridgeStatus) -> Void)?
+    private var requestsHandler: (@Sendable ([AgentRequest]) -> Void)?
     public private(set) var status: WatchResponseBridgeStatus
+    public var currentRequests: [AgentRequest] {
+        guard let context = session?.receivedApplicationContext else {
+            return []
+        }
+        return (try? WatchConnectivityPayload.decodeRequests(from: context)) ?? []
+    }
 
     public override convenience init() {
         self.init(session: WCSession.isSupported() ? WCSession.default : nil)
@@ -86,6 +98,17 @@ public final class WatchConnectivityResponseBridge: NSObject, WatchResponseBridg
 
     public func setStatusHandler(_ handler: @escaping @Sendable (WatchResponseBridgeStatus) -> Void) {
         statusHandler = handler
+    }
+
+    public func setRequestsHandler(_ handler: @escaping @Sendable ([AgentRequest]) -> Void) {
+        requestsHandler = handler
+    }
+
+    public func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        guard let requests = try? WatchConnectivityPayload.decodeRequests(from: applicationContext) else {
+            return
+        }
+        requestsHandler?(requests)
     }
 
     public func session(
