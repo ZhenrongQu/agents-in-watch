@@ -1,26 +1,28 @@
 #!/usr/bin/env node
 import { translateClaudeCodeHook } from "../src/adapters/claudeCodeHook.js";
+import {
+  acknowledgeAgentResponse,
+  postRequestAndMaybeWait,
+  readRuntimeOptions,
+} from "../src/adapters/hookRuntime.js";
 
-const helperUrl = process.env.AGENTS_IN_WATCH_HELPER_URL ?? "http://127.0.0.1:42731";
 const computerName = process.env.COMPUTER_NAME ?? "local-computer";
 
 try {
   const payload = JSON.parse(await readStdin());
   const request = translateClaudeCodeHook(payload, { computerName });
-  const headers = { "content-type": "application/json" };
-  const token = process.env.AGENTS_IN_WATCH_TOKEN;
-  if (token) {
-    headers.authorization = `Bearer ${token}`;
-  }
-  const response = await fetch(`${helperUrl}/requests`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(request),
+  const runtimeOptions = readRuntimeOptions(process.env);
+  const remoteResponse = await postRequestAndMaybeWait({
+    ...runtimeOptions,
+    request,
   });
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`helper rejected request: ${response.status} ${body}`);
+  if (remoteResponse) {
+    console.log(JSON.stringify(remoteResponse));
+    await acknowledgeAgentResponse({
+      helperUrl: runtimeOptions.helperUrl,
+      responseId: remoteResponse.id,
+      token: runtimeOptions.token,
+    });
   }
 
   process.exit(0);

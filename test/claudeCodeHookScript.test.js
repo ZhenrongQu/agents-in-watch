@@ -72,6 +72,102 @@ test("hook script includes bearer token when configured", async () => {
   }
 });
 
+test("hook script can wait for and acknowledge a remote response", async () => {
+  const requests = [];
+  let stdout = "";
+  const fakeHelper = http.createServer(async (request, response) => {
+    requests.push({ method: request.method, url: request.url, headers: request.headers });
+    const requestUrl = new URL(request.url, "http://helper.local");
+
+    if (request.method === "POST" && requestUrl.pathname === "/requests") {
+      for await (const _ of request) {
+        // Drain request body.
+      }
+      response.writeHead(201, { "content-type": "application/json" });
+      response.end(JSON.stringify({ id: "request-1" }));
+      return;
+    }
+
+    if (
+      request.method === "GET" &&
+      requestUrl.pathname === "/agent-responses" &&
+      requestUrl.searchParams.get("agentType") === "claude-code" &&
+      requestUrl.searchParams.get("sessionId") === "session-1"
+    ) {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          responses:
+            requests.filter((item) => item.method === "GET").length < 2
+              ? []
+              : [
+                  {
+                    id: "response-outbox-1",
+                    response: { requestId: "request-1", action: "allow", message: "" },
+                  },
+                ],
+        })
+      );
+      return;
+    }
+
+    if (request.method === "POST" && requestUrl.pathname === "/agent-responses/response-outbox-1/ack") {
+      assert.deepEqual(parseJsonLines(stdout), [
+        {
+          id: "response-outbox-1",
+          response: { requestId: "request-1", action: "allow", message: "" },
+        },
+      ]);
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    response.writeHead(404, { "content-type": "application/json" });
+    response.end(JSON.stringify({ error: "not found" }));
+  });
+  const helperUrl = await listen(fakeHelper);
+
+  try {
+    const result = await runHookScript({
+      env: {
+        AGENTS_IN_WATCH_HELPER_URL: helperUrl,
+        AGENTS_IN_WATCH_TOKEN: "token-123",
+        AGENTS_IN_WATCH_WAIT_FOR_RESPONSE: "1",
+        AGENTS_IN_WATCH_POLL_INTERVAL_MS: "10",
+        AGENTS_IN_WATCH_TIMEOUT_MS: "500",
+        COMPUTER_NAME: "work-mac",
+      },
+      input: JSON.stringify({
+        hook_event_name: "PermissionRequest",
+        session_id: "session-1",
+        cwd: "/Users/me/projects/payments-api",
+        tool_name: "Bash",
+        tool_input: { command: "pnpm test" },
+      }),
+      onStdout: (currentStdout) => {
+        stdout = currentStdout;
+      },
+    });
+
+    assert.equal(result.code, 0);
+    assert.equal(result.stderr, "");
+    assert.equal(parseJsonLines(result.stdout)[0].response.action, "allow");
+    assert.deepEqual(
+      requests.map((request) => `${request.method} ${new URL(request.url, "http://helper.local").pathname}`),
+      [
+        "POST /requests",
+        "GET /agent-responses",
+        "GET /agent-responses",
+        "POST /agent-responses/response-outbox-1/ack",
+      ]
+    );
+    assert.equal(requests[1].headers.authorization, "Bearer token-123");
+  } finally {
+    await close(fakeHelper);
+  }
+});
+
 test("hook script reports helper rejection details", async () => {
   const fakeHelper = http.createServer(async (_request, response) => {
     response.writeHead(401, { "content-type": "application/json" });
@@ -99,7 +195,7 @@ test("hook script reports helper rejection details", async () => {
   }
 });
 
-function runHookScript({ env, input }) {
+function runHookScript({ env, input, onStdout }) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, ["scripts/claude-code-hook.js"], {
       env: { ...process.env, ...env },
@@ -109,6 +205,7 @@ function runHookScript({ env, input }) {
     let stderr = "";
     child.stdout.on("data", (chunk) => {
       stdout += chunk;
+      onStdout?.(stdout);
     });
     child.stderr.on("data", (chunk) => {
       stderr += chunk;
@@ -116,6 +213,14 @@ function runHookScript({ env, input }) {
     child.on("close", (code) => resolve({ code, stdout, stderr }));
     child.stdin.end(input);
   });
+}
+
+function parseJsonLines(stdout) {
+  return stdout
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
 }
 
 function listen(server) {

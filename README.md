@@ -210,6 +210,14 @@ export AGENTS_IN_WATCH_HELPER_URL=http://127.0.0.1:42731
 export COMPUTER_NAME="$(hostname)"
 ```
 
+To make the hook wait for the iPhone or Apple Watch decision before exiting, also export:
+
+```bash
+export AGENTS_IN_WATCH_WAIT_FOR_RESPONSE=1
+```
+
+In wait mode the hook prints the resolved outbox response as JSON, then acknowledges it.
+
 Start Claude Code from the same shell so the hook process inherits these variables.
 
 For a project-local Claude Code setup, create `.claude/settings.local.json` in the project where you run Claude Code:
@@ -271,6 +279,14 @@ export AGENTS_IN_WATCH_TOKEN=PASTE_TOKEN_HERE
 export AGENTS_IN_WATCH_HELPER_URL=http://127.0.0.1:42731
 export COMPUTER_NAME="$(hostname)"
 ```
+
+To make the adapter wait for the iPhone or Apple Watch decision before exiting, also export:
+
+```bash
+export AGENTS_IN_WATCH_WAIT_FOR_RESPONSE=1
+```
+
+In wait mode the adapter prints the resolved outbox response as JSON, then acknowledges it.
 
 Create a Codex-style approval request:
 
