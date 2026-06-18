@@ -75,7 +75,7 @@ private struct WatchRequestRow: View {
                 .foregroundStyle(.secondary)
 
             HStack {
-                ForEach(request.actions, id: \.self) { action in
+                ForEach(request.userFacingActions, id: \.self) { action in
                     actionButton(for: action)
                 }
             }

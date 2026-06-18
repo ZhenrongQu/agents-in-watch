@@ -140,7 +140,7 @@ private struct RequestRow: View {
             }
 
             HStack {
-                ForEach(request.actions, id: \.self) { action in
+                ForEach(request.userFacingActions, id: \.self) { action in
                     actionButton(for: action)
                 }
             }

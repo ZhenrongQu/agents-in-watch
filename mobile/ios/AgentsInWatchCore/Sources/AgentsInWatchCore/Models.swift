@@ -57,6 +57,12 @@ public struct AgentRequest: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
+public extension AgentRequest {
+    var userFacingActions: [RequestAction] {
+        actions.contains(.reply) ? actions : actions + [.reply]
+    }
+}
+
 public enum AgentType: String, Codable, Equatable, Sendable {
     case claudeCode = "claude-code"
     case codexDesktop = "codex-desktop"
