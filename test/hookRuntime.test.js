@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatAgentHookResponse } from "../src/adapters/hookRuntime.js";
+import {
+  formatAgentHookResponse,
+  formatHookResponseForOutput,
+  readRuntimeOptions,
+} from "../src/adapters/hookRuntime.js";
 
 test("formats allow responses as approved agent results", () => {
   assert.deepEqual(
@@ -68,5 +72,76 @@ test("formats pause responses as paused agent results", () => {
       shouldContinue: false,
       status: "paused",
     }
+  );
+});
+
+test("formats Claude Code PermissionRequest allow decisions", () => {
+  assert.deepEqual(
+    formatHookResponseForOutput(
+      {
+        response: { requestId: "request-1", action: "allow", message: "" },
+      },
+      {
+        hookEventName: "PermissionRequest",
+        outputFormat: "claude-code",
+      }
+    ),
+    {
+      hookSpecificOutput: {
+        hookEventName: "PermissionRequest",
+        decision: {
+          behavior: "allow",
+        },
+      },
+    }
+  );
+});
+
+test("formats Claude Code PermissionRequest deny decisions with messages", () => {
+  assert.deepEqual(
+    formatHookResponseForOutput(
+      {
+        response: { requestId: "request-2", action: "deny", message: "not now" },
+      },
+      {
+        hookEventName: "PermissionRequest",
+        outputFormat: "claude-code",
+      }
+    ),
+    {
+      hookSpecificOutput: {
+        hookEventName: "PermissionRequest",
+        decision: {
+          behavior: "deny",
+          message: "not now",
+        },
+      },
+    }
+  );
+});
+
+test("keeps generic agent JSON output by default", () => {
+  assert.deepEqual(
+    formatHookResponseForOutput({
+      id: "response-outbox-3",
+      response: { requestId: "request-3", action: "pause", message: "" },
+    }),
+    {
+      action: "pause",
+      message: "",
+      requestId: "request-3",
+      responseId: "response-outbox-3",
+      shouldContinue: false,
+      status: "paused",
+    }
+  );
+});
+
+test("reads output format from runtime environment", () => {
+  assert.equal(
+    readRuntimeOptions({
+      AGENTS_IN_WATCH_OUTPUT_FORMAT: "claude-code",
+    }).outputFormat,
+    "claude-code"
   );
 });

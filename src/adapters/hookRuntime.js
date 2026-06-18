@@ -116,14 +116,51 @@ export function formatAgentHookResponse(outboxItem) {
   };
 }
 
+export function formatHookResponseForOutput(outboxItem, options = {}) {
+  if (options.outputFormat === "claude-code" && options.hookEventName === "PermissionRequest") {
+    return formatClaudeCodePermissionRequestResponse(outboxItem);
+  }
+
+  return formatAgentHookResponse(outboxItem);
+}
+
 export function readRuntimeOptions(env) {
   return {
     helperUrl: env.AGENTS_IN_WATCH_HELPER_URL ?? "http://127.0.0.1:42731",
+    outputFormat: env.AGENTS_IN_WATCH_OUTPUT_FORMAT ?? "agent-json",
     pollIntervalMs: readPositiveInteger(env.AGENTS_IN_WATCH_POLL_INTERVAL_MS ?? "1000", "AGENTS_IN_WATCH_POLL_INTERVAL_MS"),
     timeoutMs: readPositiveInteger(env.AGENTS_IN_WATCH_TIMEOUT_MS ?? "300000", "AGENTS_IN_WATCH_TIMEOUT_MS"),
     token: env.AGENTS_IN_WATCH_TOKEN,
     waitForResponse: env.AGENTS_IN_WATCH_WAIT_FOR_RESPONSE === "1",
   };
+}
+
+function formatClaudeCodePermissionRequestResponse(outboxItem) {
+  const action = outboxItem.response?.action ?? "";
+  const message = outboxItem.response?.message ?? "";
+  const decision = action === "allow"
+    ? { behavior: "allow" }
+    : {
+        behavior: "deny",
+        message: message || messageForDeniedAction(action),
+      };
+
+  return {
+    hookSpecificOutput: {
+      hookEventName: "PermissionRequest",
+      decision,
+    },
+  };
+}
+
+function messageForDeniedAction(action) {
+  if (action === "pause") {
+    return "Paused from Agents in Watch.";
+  }
+  if (action === "reply") {
+    return "Replied from Agents in Watch.";
+  }
+  return "Denied from Agents in Watch.";
 }
 
 function statusForAction(action) {

@@ -216,7 +216,7 @@ To make the hook wait for the iPhone or Apple Watch decision before exiting, als
 export AGENTS_IN_WATCH_WAIT_FOR_RESPONSE=1
 ```
 
-In wait mode the hook prints a normalized agent result as JSON, then acknowledges the resolved outbox item:
+By default, wait mode prints a normalized agent result as JSON, then acknowledges the resolved outbox item:
 
 ```json
 {
@@ -226,6 +226,25 @@ In wait mode the hook prints a normalized agent result as JSON, then acknowledge
   "responseId": "response-outbox-1",
   "shouldContinue": true,
   "status": "replied"
+}
+```
+
+For a Claude Code `PermissionRequest` hook, you can instead emit Claude Code's native hook decision JSON:
+
+```bash
+export AGENTS_IN_WATCH_OUTPUT_FORMAT=claude-code
+```
+
+An `allow` response from iPhone or Apple Watch then prints:
+
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PermissionRequest",
+    "decision": {
+      "behavior": "allow"
+    }
+  }
 }
 ```
 
@@ -297,7 +316,7 @@ To make the adapter wait for the iPhone or Apple Watch decision before exiting, 
 export AGENTS_IN_WATCH_WAIT_FOR_RESPONSE=1
 ```
 
-In wait mode the adapter prints a normalized agent result as JSON, then acknowledges the resolved outbox item. The `status` field is one of `approved`, `denied`, `paused`, `replied`, or `unknown`.
+In wait mode the adapter prints a normalized agent result as JSON, then acknowledges the resolved outbox item. The `status` field is one of `approved`, `denied`, `paused`, `replied`, or `unknown`. Codex Desktop does not yet have a native hook decision output mode in this project.
 
 Create a Codex-style approval request:
 

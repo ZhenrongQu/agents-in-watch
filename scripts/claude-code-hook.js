@@ -2,7 +2,7 @@
 import { translateClaudeCodeHook } from "../src/adapters/claudeCodeHook.js";
 import {
   acknowledgeAgentResponse,
-  formatAgentHookResponse,
+  formatHookResponseForOutput,
   postRequestAndMaybeWait,
   readRuntimeOptions,
 } from "../src/adapters/hookRuntime.js";
@@ -18,7 +18,10 @@ try {
     request,
   });
   if (remoteResponse) {
-    console.log(JSON.stringify(formatAgentHookResponse(remoteResponse)));
+    console.log(JSON.stringify(formatHookResponseForOutput(remoteResponse, {
+      hookEventName: payload.hook_event_name ?? payload.hookEventName,
+      outputFormat: runtimeOptions.outputFormat,
+    })));
     await acknowledgeAgentResponse({
       helperUrl: runtimeOptions.helperUrl,
       responseId: remoteResponse.id,
