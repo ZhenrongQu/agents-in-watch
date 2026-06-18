@@ -204,6 +204,17 @@ This command fetches decisions from the helper. It does not yet click Codex Desk
 
 The script `scripts/claude-code-hook.js` reads a Claude Code hook payload from stdin, translates it, and posts it to the helper. It supports Claude Code `PermissionRequest` and `Notification` events.
 
+Claude Code's VS Code extension and CLI share Claude Code settings, including hooks. For VS Code, install the hook into the project you open in VS Code:
+
+```bash
+npm run install:claude-vscode-hook -- \
+  --project /path/to/your/project \
+  --helper-url http://127.0.0.1:42731 \
+  --token PASTE_TOKEN_HERE
+```
+
+The installer writes `.claude/settings.local.json` in that project, sets `AGENTS_IN_WATCH_WAIT_FOR_RESPONSE=1`, and sets `AGENTS_IN_WATCH_OUTPUT_FORMAT=claude-code` inside the hook command so the VS Code extension does not need to inherit shell environment variables. Restart the Claude Code conversation in VS Code after installing.
+
 ```bash
 export AGENTS_IN_WATCH_TOKEN=PASTE_TOKEN_HERE
 export AGENTS_IN_WATCH_HELPER_URL=http://127.0.0.1:42731
@@ -248,9 +259,9 @@ An `allow` response from iPhone or Apple Watch then prints:
 }
 ```
 
-Start Claude Code from the same shell so the hook process inherits these variables.
+If you configure hooks manually and rely on exported environment variables, start Claude Code from the same shell so the hook process inherits them. For VS Code, prefer the installer above because it writes the environment values directly into the local hook command.
 
-For a project-local Claude Code setup, create `.claude/settings.local.json` in the project where you run Claude Code:
+For a project-local Claude Code setup without the installer, create `.claude/settings.local.json` in the project where you run Claude Code:
 
 ```json
 {
@@ -265,23 +276,12 @@ For a project-local Claude Code setup, create `.claude/settings.local.json` in t
           }
         ]
       }
-    ],
-    "Notification": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/absolute/path/to/agents-in-watch/scripts/claude-code-hook.js"
-          }
-        ]
-      }
     ]
   }
 }
 ```
 
-Claude Code sends hook JSON to command hooks on stdin. The bridge posts the translated request to the local helper using `AGENTS_IN_WATCH_TOKEN` as a bearer token. Keep this setup in `settings.local.json` unless you intentionally want to commit hook configuration to a project.
+Claude Code sends hook JSON to command hooks on stdin. The bridge posts the translated request to the local helper using `AGENTS_IN_WATCH_TOKEN` as a bearer token. Keep this setup in `settings.local.json` unless you intentionally want to commit hook configuration to a project. The recommended VS Code installer only configures `PermissionRequest`, so regular notifications do not block while waiting for a Watch response.
 
 You can smoke-test the bridge without launching Claude Code:
 

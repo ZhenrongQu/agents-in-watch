@@ -1,5 +1,7 @@
 .superpowers/
 .worktrees/
+.claude/settings.local.json
+**/.claude/settings.local.json
 **/.build/
 **/.swiftpm/
 **/*.xcodeproj/project.xcworkspace/

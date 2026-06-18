@@ -8,6 +8,7 @@
     "node": ">=20"
   },
   "scripts": {
+    "install:claude-vscode-hook": "node scripts/install-claude-vscode-hook.js",
     "start": "node src/helper/server.js",
     "poll:agent-responses": "node scripts/poll-agent-responses.js",
     "smoke:claude-code": "node scripts/smoke-claude-code.js",
