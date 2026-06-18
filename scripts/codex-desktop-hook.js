@@ -2,6 +2,7 @@
 import { translateCodexDesktopHook } from "../src/adapters/codexDesktopHook.js";
 import {
   acknowledgeAgentResponse,
+  formatAgentHookResponse,
   postRequestAndMaybeWait,
   readRuntimeOptions,
 } from "../src/adapters/hookRuntime.js";
@@ -17,7 +18,7 @@ try {
     request,
   });
   if (remoteResponse) {
-    console.log(JSON.stringify(remoteResponse));
+    console.log(JSON.stringify(formatAgentHookResponse(remoteResponse)));
     await acknowledgeAgentResponse({
       helperUrl: runtimeOptions.helperUrl,
       responseId: remoteResponse.id,

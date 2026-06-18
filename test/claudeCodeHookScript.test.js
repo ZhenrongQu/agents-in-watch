@@ -114,8 +114,12 @@ test("hook script can wait for and acknowledge a remote response", async () => {
     if (request.method === "POST" && requestUrl.pathname === "/agent-responses/response-outbox-1/ack") {
       assert.deepEqual(parseJsonLines(stdout), [
         {
-          id: "response-outbox-1",
-          response: { requestId: "request-1", action: "allow", message: "" },
+          action: "allow",
+          message: "",
+          requestId: "request-1",
+          responseId: "response-outbox-1",
+          shouldContinue: true,
+          status: "approved",
         },
       ]);
       response.writeHead(200, { "content-type": "application/json" });
@@ -152,7 +156,8 @@ test("hook script can wait for and acknowledge a remote response", async () => {
 
     assert.equal(result.code, 0);
     assert.equal(result.stderr, "");
-    assert.equal(parseJsonLines(result.stdout)[0].response.action, "allow");
+    assert.equal(parseJsonLines(result.stdout)[0].action, "allow");
+    assert.equal(parseJsonLines(result.stdout)[0].status, "approved");
     assert.deepEqual(
       requests.map((request) => `${request.method} ${new URL(request.url, "http://helper.local").pathname}`),
       [

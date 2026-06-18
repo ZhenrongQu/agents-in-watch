@@ -216,7 +216,18 @@ To make the hook wait for the iPhone or Apple Watch decision before exiting, als
 export AGENTS_IN_WATCH_WAIT_FOR_RESPONSE=1
 ```
 
-In wait mode the hook prints the resolved outbox response as JSON, then acknowledges it.
+In wait mode the hook prints a normalized agent result as JSON, then acknowledges the resolved outbox item:
+
+```json
+{
+  "action": "reply",
+  "message": "继续",
+  "requestId": "request-1",
+  "responseId": "response-outbox-1",
+  "shouldContinue": true,
+  "status": "replied"
+}
+```
 
 Start Claude Code from the same shell so the hook process inherits these variables.
 
@@ -286,7 +297,7 @@ To make the adapter wait for the iPhone or Apple Watch decision before exiting, 
 export AGENTS_IN_WATCH_WAIT_FOR_RESPONSE=1
 ```
 
-In wait mode the adapter prints the resolved outbox response as JSON, then acknowledges it.
+In wait mode the adapter prints a normalized agent result as JSON, then acknowledges the resolved outbox item. The `status` field is one of `approved`, `denied`, `paused`, `replied`, or `unknown`.
 
 Create a Codex-style approval request:
 

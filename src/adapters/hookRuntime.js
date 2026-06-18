@@ -102,6 +102,20 @@ export async function acknowledgeAgentResponse({ helperUrl, token, responseId })
   }
 }
 
+export function formatAgentHookResponse(outboxItem) {
+  const action = outboxItem.response?.action ?? "";
+  const message = outboxItem.response?.message ?? "";
+
+  return {
+    action,
+    message,
+    requestId: outboxItem.response?.requestId ?? outboxItem.requestId ?? "",
+    responseId: outboxItem.id ?? "",
+    shouldContinue: action === "allow" || action === "reply",
+    status: statusForAction(action),
+  };
+}
+
 export function readRuntimeOptions(env) {
   return {
     helperUrl: env.AGENTS_IN_WATCH_HELPER_URL ?? "http://127.0.0.1:42731",
@@ -110,6 +124,22 @@ export function readRuntimeOptions(env) {
     token: env.AGENTS_IN_WATCH_TOKEN,
     waitForResponse: env.AGENTS_IN_WATCH_WAIT_FOR_RESPONSE === "1",
   };
+}
+
+function statusForAction(action) {
+  if (action === "allow") {
+    return "approved";
+  }
+  if (action === "deny") {
+    return "denied";
+  }
+  if (action === "pause") {
+    return "paused";
+  }
+  if (action === "reply") {
+    return "replied";
+  }
+  return "unknown";
 }
 
 function readPositiveInteger(value, name) {
