@@ -18,6 +18,82 @@ The current implementation is the first desktop-helper slice. It can:
 
 It does not yet include packaged desktop installers, automatic Codex Desktop UI control, notification action buttons, or background retry queues.
 
+## Quick Start: VS Code Claude Code + iPhone + Apple Watch
+
+This is the fastest path for testing the current MVP with the Claude Code VS Code UI.
+
+### 1. Start the Mac helper
+
+For iPhone and Apple Watch testing on the same Wi-Fi, bind the helper to the LAN and disable auth while testing:
+
+```bash
+AGENTS_IN_WATCH_HOST=0.0.0.0 AGENTS_IN_WATCH_AUTH_REQUIRED=0 npm start
+```
+
+Open the Control Center:
+
+```text
+http://127.0.0.1:42731/pairing
+```
+
+The page shows the iPhone server URL, usually something like:
+
+```text
+http://192.168.1.64:42731
+```
+
+Use that LAN URL in the iPhone app. Keep the helper running while testing.
+
+### 2. Install or refresh the iPhone and Watch apps
+
+Open the Xcode project:
+
+```bash
+open mobile/ios/AgentsInWatch.xcodeproj
+```
+
+Run the `AgentsInWatch` scheme on your iPhone. Install the Watch app from Xcode or from the Watch app on iPhone if needed.
+
+If iPhone says the app is no longer available, rebuild and reinstall from Xcode. Free Apple development profiles can expire after about seven days.
+
+### 3. Connect the iPhone app
+
+In the iPhone app, enter the iPhone server URL from the Control Center, for example:
+
+```text
+http://192.168.1.64:42731
+```
+
+Tap connect or refresh. The Control Center's `Create Test Request` button should create a request that appears on iPhone and then on Apple Watch. Tap `allow` on the Watch and confirm the Control Center shows the response.
+
+### 4. Install the Claude Code VS Code hook
+
+From this repository, install the hook into the project you open in VS Code:
+
+```bash
+npm run install:claude-vscode-hook -- \
+  --project /path/to/your/project \
+  --helper-url http://127.0.0.1:42731
+```
+
+Restart the Claude Code conversation in VS Code so it reloads `.claude/settings.local.json`.
+
+### 5. Test with Claude Code in VS Code
+
+Ask Claude Code in VS Code to do something that requires permission, such as running a shell command or writing a file. The request should appear on iPhone and Apple Watch. Tap `allow`; Claude Code should continue.
+
+Use the Control Center if something does not move. It shows pending requests, unacknowledged agent responses, and the helper network URL.
+
+### Common Test Issues
+
+| Symptom | Likely cause | What to do |
+| --- | --- | --- |
+| iPhone app says the app is no longer available | Development provisioning profile expired | Rebuild and reinstall from Xcode |
+| iPhone does not show requests | Helper is not running, URL is wrong, or iPhone is not on the same Wi-Fi | Start helper with `AGENTS_IN_WATCH_HOST=0.0.0.0`, use the Control Center LAN URL |
+| iPhone shows requests but Watch does not | Watch app is not installed, expired, or WatchConnectivity is not active | Reinstall the Watch app and open it once |
+| Watch allow does not continue Claude Code | Hook did not consume the response or VS Code did not reload settings | Restart the Claude Code conversation and check Control Center `Agent Responses` |
+| Another project does not trigger Watch requests | Hook is project-local | Run `npm run install:claude-vscode-hook -- --project /path/to/project --helper-url http://127.0.0.1:42731` for that project |
+
 ## Run
 
 ```bash
