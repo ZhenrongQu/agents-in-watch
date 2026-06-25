@@ -5,88 +5,49 @@ struct PendingRequestsView: View {
     @ObservedObject var model: CompanionViewModel
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .center, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Requests")
-                            .font(.title.bold())
-                        Text("Remote approvals from your agent sessions.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+        GeometryReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    RequestDashboardHeader(model: model)
 
-                    Spacer(minLength: 8)
+                    StatusDashboard(
+                        watchStatus: model.watchStatus,
+                        notificationStatus: model.notificationStatus,
+                        autoRefreshStatus: model.autoRefreshStatus
+                    )
 
-                    HStack(spacing: 8) {
-                        Button {
-                            Task { await model.loadPendingRequests() }
-                        } label: {
-                            Image(systemName: "arrow.clockwise")
-                                .frame(width: 34, height: 34)
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(model.isLoading)
-
-                        Button(role: .destructive) {
-                            model.disconnect()
-                        } label: {
-                            Image(systemName: "iphone.slash")
-                                .frame(width: 34, height: 34)
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                }
-                .padding(.top, 8)
-
-                SurfaceCard {
-                    StatusLine(title: model.watchStatus.title, detail: model.watchStatus.detail, systemImage: "applewatch")
-                    Divider()
-                    StatusLine(title: model.notificationStatus.title, detail: model.notificationStatus.detail, systemImage: "bell")
-                    Divider()
-                    StatusLine(title: model.autoRefreshStatus.title, detail: model.autoRefreshStatus.detail, systemImage: "arrow.triangle.2.circlepath")
-                }
-
-                if model.pendingRequests.isEmpty {
-                    SurfaceCard {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.title2)
-                                .foregroundStyle(.green)
-                            Text("No Pending Requests")
-                                .font(.headline)
-                            Text("Your agents are not waiting for a response.")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                } else {
-                    ForEach(model.pendingRequests) { request in
-                        RequestRow(request: request) { action, message in
-                            Task {
-                                await model.send(action: action, for: request, message: message)
+                    if model.pendingRequests.isEmpty {
+                        EmptyRequestsDashboard()
+                            .frame(minHeight: emptyStateHeight(for: proxy.size.height))
+                    } else {
+                        ForEach(model.pendingRequests) { request in
+                            RequestRow(request: request) { action, message in
+                                Task {
+                                    await model.send(action: action, for: request, message: message)
+                                }
                             }
                         }
                     }
-                }
 
-                if model.isLoading {
-                    SurfaceCard {
-                        ProgressView()
-                            .frame(maxWidth: .infinity)
+                    if model.isLoading {
+                        SurfaceCard {
+                            ProgressView()
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+
+                    if let errorMessage = model.errorMessage {
+                        SurfaceCard {
+                            Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.red)
+                        }
                     }
                 }
-
-                if let errorMessage = model.errorMessage {
-                    SurfaceCard {
-                        Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.red)
-                    }
-                }
+                .frame(minHeight: proxy.size.height, alignment: .top)
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 18)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 24)
         }
         .background(AppSurface.background.ignoresSafeArea())
         .refreshable {
@@ -97,6 +58,129 @@ struct PendingRequestsView: View {
                 await model.loadPendingRequests()
             }
         }
+    }
+
+    private func emptyStateHeight(for screenHeight: CGFloat) -> CGFloat {
+        max(220, screenHeight - 280)
+    }
+}
+
+private struct RequestDashboardHeader: View {
+    @ObservedObject var model: CompanionViewModel
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Requests")
+                    .font(.system(.title2, design: .rounded).weight(.bold))
+                Text("Approvals from your agent sessions.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 8)
+
+            HStack(spacing: 8) {
+                Button {
+                    Task { await model.loadPendingRequests() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .frame(width: 32, height: 32)
+                }
+                .buttonStyle(.bordered)
+                .disabled(model.isLoading)
+                .accessibilityLabel("Refresh")
+
+                Button(role: .destructive) {
+                    model.disconnect()
+                } label: {
+                    Image(systemName: "iphone.slash")
+                        .frame(width: 32, height: 32)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityLabel("Disconnect")
+            }
+        }
+    }
+}
+
+private struct StatusDashboard: View {
+    let watchStatus: WatchRequestBridgeStatus
+    let notificationStatus: NotificationBridgeStatus
+    let autoRefreshStatus: AutoRefreshStatus
+
+    var body: some View {
+        VStack(spacing: 8) {
+            StatusTile(title: watchStatus.title, detail: watchStatus.detail, systemImage: "applewatch")
+            StatusTile(title: notificationStatus.title, detail: notificationStatus.detail, systemImage: "bell")
+            StatusTile(title: autoRefreshStatus.title, detail: autoRefreshStatus.detail, systemImage: "arrow.triangle.2.circlepath")
+        }
+    }
+}
+
+private struct StatusTile: View {
+    let title: String
+    let detail: String
+    let systemImage: String
+
+    var body: some View {
+        Label {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(title)
+                    .font(.callout.weight(.semibold))
+                    .lineLimit(1)
+
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+        } icon: {
+            Image(systemName: systemImage)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.blue)
+                .frame(width: 24)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(AppSurface.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private struct EmptyRequestsDashboard: View {
+    var body: some View {
+        VStack(spacing: 14) {
+            Spacer(minLength: 4)
+
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 42, weight: .semibold))
+                .foregroundStyle(.green)
+
+            VStack(spacing: 6) {
+                Text("No Pending Requests")
+                    .font(.title3.weight(.bold))
+                Text("When Codex Desktop or Claude Code needs approval, it will appear here and on your Watch.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+            }
+
+            Spacer(minLength: 4)
+
+            Label("Waiting for agent activity", systemImage: "dot.radiowaves.left.and.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(.secondary.opacity(0.12), in: Capsule())
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(18)
+        .background(AppSurface.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 

@@ -66,24 +66,3 @@ struct SurfaceCard<Content: View>: View {
         .background(AppSurface.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
-
-struct StatusLine: View {
-    let title: String
-    let detail: String
-    let systemImage: String
-
-    var body: some View {
-        Label {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        } icon: {
-            Image(systemName: systemImage)
-                .foregroundStyle(.blue)
-        }
-    }
-}
