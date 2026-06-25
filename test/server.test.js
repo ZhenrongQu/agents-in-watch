@@ -169,8 +169,12 @@ test("serves a local pairing dashboard without request auth", async () => {
     assert.match(html, /project-path/);
     assert.match(html, /project-recents/);
     assert.match(html, /Install Hook/);
+    assert.match(html, /Project Health/);
+    assert.match(html, /project-health/);
+    assert.match(html, /Refresh Projects/);
     assert.match(html, /\/diagnostics/);
     assert.match(html, /\/diagnostics\/claude-hook/);
+    assert.match(html, /\/diagnostics\/claude-hook\/batch/);
     assert.match(html, /\/diagnostics\/claude-hook\/install/);
     assert.match(html, /\/diagnostics\/test-request/);
   } finally {
@@ -507,6 +511,56 @@ test("reports Claude Code hook diagnostics without request auth", async () => {
     assert.equal(body.outputFormat, "claude-code");
     assert.match(body.command, /AGENTS_IN_WATCH_TOKEN=<redacted>/);
     assert.doesNotMatch(body.command, /secret/);
+  } finally {
+    await close(app);
+  }
+});
+
+test("reports batch Claude Code hook diagnostics without request auth", async () => {
+  const installedProjectDir = await mkdtemp(path.join(tmpdir(), "agents-in-watch-batch-installed-"));
+  const missingProjectDir = await mkdtemp(path.join(tmpdir(), "agents-in-watch-batch-missing-"));
+  const settingsDir = path.join(installedProjectDir, ".claude");
+  await mkdir(settingsDir, { recursive: true });
+  await writeFile(
+    path.join(settingsDir, "settings.local.json"),
+    JSON.stringify({
+      hooks: {
+        PermissionRequest: [
+          {
+            matcher: "*",
+            hooks: [
+              {
+                type: "command",
+                command:
+                  "/usr/bin/env AGENTS_IN_WATCH_WAIT_FOR_RESPONSE=1 AGENTS_IN_WATCH_OUTPUT_FORMAT=claude-code AGENTS_IN_WATCH_HELPER_URL=http://127.0.0.1:42731 node /repo/scripts/claude-code-hook.js",
+                timeout: 300,
+              },
+            ],
+          },
+        ],
+      },
+    })
+  );
+  const app = createServer({ authRequired: true });
+  const baseUrl = await listen(app);
+
+  try {
+    const response = await fetch(`${baseUrl}/diagnostics/claude-hook/batch`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        projectDirs: [installedProjectDir, missingProjectDir],
+      }),
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.projects.length, 2);
+    assert.equal(body.projects[0].projectDir, installedProjectDir);
+    assert.equal(body.projects[0].installed, true);
+    assert.equal(body.projects[0].helperUrl, "http://127.0.0.1:42731");
+    assert.equal(body.projects[1].projectDir, missingProjectDir);
+    assert.equal(body.projects[1].installed, false);
   } finally {
     await close(app);
   }

@@ -57,6 +57,18 @@ export function createServer({
         }));
       }
 
+      if (request.method === "POST" && url.pathname === "/diagnostics/claude-hook/batch") {
+        const body = await readJson(request);
+        const projectDirs = Array.isArray(body.projectDirs)
+          ? body.projectDirs.filter((item) => typeof item === "string" && item.trim()).slice(0, 20)
+          : [];
+        return sendJson(response, 200, {
+          projects: await Promise.all(projectDirs.map((targetProjectDir) => {
+            return inspectClaudeCodeVsCodeHook({ projectDir: targetProjectDir });
+          })),
+        });
+      }
+
       if (request.method === "POST" && url.pathname === "/diagnostics/claude-hook/install") {
         if (!isLoopbackRequest(request)) {
           return sendJson(response, 403, { error: "hook install is only available from this Mac" });

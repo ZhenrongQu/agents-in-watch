@@ -274,6 +274,46 @@ export function renderPairingDashboardPage() {
       overflow-wrap: anywhere;
     }
 
+    .project-health {
+      display: grid;
+      gap: 10px;
+    }
+
+    .health-row {
+      display: grid;
+      grid-template-columns: 78px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      border-top: 1px solid var(--line);
+      padding-top: 10px;
+      cursor: pointer;
+    }
+
+    .health-row:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .health-status {
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .health-status.off {
+      color: var(--warn);
+    }
+
+    .health-path {
+      font-weight: 650;
+      overflow-wrap: anywhere;
+    }
+
+    .health-meta {
+      color: var(--muted);
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
     .approved {
       color: var(--ok);
     }
@@ -365,6 +405,17 @@ export function renderPairingDashboardPage() {
       </section>
 
       <section>
+        <h2>Project Health</h2>
+        <div class="button-row">
+          <button id="refresh-projects" type="button">Refresh Projects</button>
+        </div>
+        <div class="project-health" id="project-health">
+          <p class="empty">No recent projects yet.</p>
+        </div>
+        <p class="status" id="project-health-status" role="status"></p>
+      </section>
+
+      <section>
         <h2>Agent Responses</h2>
         <div class="list" id="agent-responses"><p class="empty">No unacknowledged responses.</p></div>
       </section>
@@ -392,6 +443,9 @@ export function renderPairingDashboardPage() {
     const projectRecentsEl = document.querySelector("#project-recents");
     const checkHookButton = document.querySelector("#check-hook");
     const installHookButton = document.querySelector("#install-hook");
+    const projectHealthEl = document.querySelector("#project-health");
+    const projectHealthStatusEl = document.querySelector("#project-health-status");
+    const refreshProjectsButton = document.querySelector("#refresh-projects");
     const projectRecentsKey = "agentsInWatch.projectRecents";
 
     async function requestJson(path, options = {}) {
@@ -422,6 +476,11 @@ export function renderPairingDashboardPage() {
     function setClaudeHookStatus(message, className = "") {
       claudeHookStatusEl.textContent = message;
       claudeHookStatusEl.className = className ? "status " + className : "status";
+    }
+
+    function setProjectHealthStatus(message, className = "") {
+      projectHealthStatusEl.textContent = message;
+      projectHealthStatusEl.className = className ? "status " + className : "status";
     }
 
     async function loadNetworkInfo() {
@@ -518,6 +577,7 @@ export function renderPairingDashboardPage() {
         const body = await requestJson("/diagnostics/claude-hook" + query);
         renderClaudeHookStatus(body);
         rememberProject(body.projectDir);
+        await loadProjectHealth();
         setClaudeHookStatus("Updated " + new Date().toLocaleTimeString(), body.installed ? "approved" : "");
       } catch (error) {
         setClaudeHookStatus(error.message);
@@ -541,11 +601,35 @@ export function renderPairingDashboardPage() {
         });
         renderClaudeHookStatus(body);
         rememberProject(body.projectDir);
+        await loadProjectHealth();
         setClaudeHookStatus("Hook installed.", "approved");
       } catch (error) {
         setClaudeHookStatus(error.message);
       } finally {
         installHookButton.disabled = false;
+      }
+    }
+
+    async function loadProjectHealth() {
+      refreshProjectsButton.disabled = true;
+      try {
+        const projectDirs = readProjectRecents();
+        if (projectDirs.length === 0) {
+          projectHealthEl.innerHTML = '<p class="empty">No recent projects yet.</p>';
+          setProjectHealthStatus("");
+          return;
+        }
+
+        const body = await requestJson("/diagnostics/claude-hook/batch", {
+          method: "POST",
+          body: JSON.stringify({ projectDirs })
+        });
+        renderProjectHealth(body.projects ?? []);
+        setProjectHealthStatus("Updated " + new Date().toLocaleTimeString(), "approved");
+      } catch (error) {
+        setProjectHealthStatus(error.message);
+      } finally {
+        refreshProjectsButton.disabled = false;
       }
     }
 
@@ -587,6 +671,39 @@ export function renderPairingDashboardPage() {
       }
 
       claudeHookDetailsEl.replaceChildren(...details);
+    }
+
+    function renderProjectHealth(projects) {
+      if (projects.length === 0) {
+        projectHealthEl.innerHTML = '<p class="empty">No recent projects yet.</p>';
+        return;
+      }
+
+      projectHealthEl.replaceChildren(...projects.map((project) => {
+        const row = document.createElement("button");
+        row.className = "health-row";
+        row.type = "button";
+        row.addEventListener("click", () => {
+          projectPathEl.value = project.projectDir;
+          loadClaudeHookStatus();
+        });
+
+        const status = document.createElement("div");
+        status.className = project.installed ? "health-status approved" : "health-status off";
+        status.textContent = project.installed ? "Ready" : "Missing";
+
+        const copy = document.createElement("div");
+        const path = document.createElement("div");
+        path.className = "health-path";
+        path.textContent = project.projectDir;
+        const meta = document.createElement("div");
+        meta.className = "health-meta";
+        meta.textContent = project.helperUrl ?? "Hook not installed";
+        copy.append(path, meta);
+
+        row.append(status, copy);
+        return row;
+      }));
     }
 
     function getProjectPath() {
@@ -691,6 +808,7 @@ export function renderPairingDashboardPage() {
     testRequestButton.addEventListener("click", createTestRequest);
     checkHookButton.addEventListener("click", loadClaudeHookStatus);
     installHookButton.addEventListener("click", installClaudeHook);
+    refreshProjectsButton.addEventListener("click", loadProjectHealth);
     projectRecentsEl.addEventListener("change", () => {
       if (projectRecentsEl.value) {
         projectPathEl.value = projectRecentsEl.value;
@@ -703,6 +821,7 @@ export function renderPairingDashboardPage() {
     loadClaims();
     loadDiagnostics();
     loadClaudeHookStatus();
+    loadProjectHealth();
     setInterval(loadClaims, 2000);
     setInterval(loadDiagnostics, 2000);
     setInterval(loadClaudeHookStatus, 5000);
