@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import {
   buildClaudeCodeHookCommand,
+  inspectClaudeCodeVsCodeHook,
   installClaudeCodeVsCodeHook,
 } from "../src/adapters/claudeCodeSettingsInstaller.js";
 
@@ -17,6 +18,61 @@ test("builds a VS Code-safe Claude Code hook command with inline environment", (
     }),
     "/usr/bin/env AGENTS_IN_WATCH_WAIT_FOR_RESPONSE=1 AGENTS_IN_WATCH_OUTPUT_FORMAT=claude-code AGENTS_IN_WATCH_HELPER_URL=http://127.0.0.1:42731 AGENTS_IN_WATCH_TOKEN='token with spaces' node /repo/scripts/claude-code-hook.js"
   );
+});
+
+test("reports Claude Code hook as not installed when local settings are missing", async () => {
+  const projectDir = await mkdtemp(path.join(tmpdir(), "agents-in-watch-settings-"));
+
+  const status = await inspectClaudeCodeVsCodeHook({ projectDir });
+
+  assert.equal(status.projectDir, projectDir);
+  assert.equal(status.settingsPath, path.join(projectDir, ".claude", "settings.local.json"));
+  assert.equal(status.exists, false);
+  assert.equal(status.installed, false);
+  assert.equal(status.helperUrl, null);
+  assert.equal(status.waitForResponse, false);
+  assert.equal(status.outputFormat, null);
+  assert.equal(status.command, null);
+});
+
+test("reports installed Claude Code hook details without exposing token", async () => {
+  const projectDir = await mkdtemp(path.join(tmpdir(), "agents-in-watch-settings-"));
+  const settingsDir = path.join(projectDir, ".claude");
+  await mkdir(settingsDir, { recursive: true });
+  await writeFile(
+    path.join(settingsDir, "settings.local.json"),
+    JSON.stringify(
+      {
+        hooks: {
+          PermissionRequest: [
+            {
+              matcher: "*",
+              hooks: [
+                {
+                  type: "command",
+                  command:
+                    "/usr/bin/env AGENTS_IN_WATCH_WAIT_FOR_RESPONSE=1 AGENTS_IN_WATCH_OUTPUT_FORMAT=claude-code AGENTS_IN_WATCH_HELPER_URL=http://127.0.0.1:42731 AGENTS_IN_WATCH_TOKEN='secret token' node /repo/scripts/claude-code-hook.js",
+                  timeout: 300,
+                },
+              ],
+            },
+          ],
+        },
+      },
+      null,
+      2
+    )
+  );
+
+  const status = await inspectClaudeCodeVsCodeHook({ projectDir });
+
+  assert.equal(status.exists, true);
+  assert.equal(status.installed, true);
+  assert.equal(status.helperUrl, "http://127.0.0.1:42731");
+  assert.equal(status.waitForResponse, true);
+  assert.equal(status.outputFormat, "claude-code");
+  assert.match(status.command, /AGENTS_IN_WATCH_TOKEN=<redacted>/);
+  assert.doesNotMatch(status.command, /secret token/);
 });
 
 test("installs a PermissionRequest hook into project-local Claude settings", async () => {

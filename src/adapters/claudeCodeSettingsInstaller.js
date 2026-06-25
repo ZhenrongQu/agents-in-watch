@@ -60,6 +60,43 @@ export async function installClaudeCodeVsCodeHook({
   return { created, settingsPath };
 }
 
+export async function inspectClaudeCodeVsCodeHook({
+  projectDir = process.cwd(),
+} = {}) {
+  const settingsPath = path.join(projectDir, ".claude", "settings.local.json");
+  const missing = {
+    projectDir,
+    settingsPath,
+    exists: false,
+    installed: false,
+    helperUrl: null,
+    waitForResponse: false,
+    outputFormat: null,
+    command: null,
+  };
+
+  const { settings, created } = await readSettings(settingsPath);
+  if (created) {
+    return missing;
+  }
+
+  const command = findAgentsInWatchHookCommand(settings);
+  if (!command) {
+    return { ...missing, exists: true };
+  }
+
+  return {
+    projectDir,
+    settingsPath,
+    exists: true,
+    installed: true,
+    helperUrl: extractEnvValue(command, "AGENTS_IN_WATCH_HELPER_URL"),
+    waitForResponse: extractEnvValue(command, "AGENTS_IN_WATCH_WAIT_FOR_RESPONSE") === "1",
+    outputFormat: extractEnvValue(command, "AGENTS_IN_WATCH_OUTPUT_FORMAT"),
+    command: redactHookCommand(command),
+  };
+}
+
 async function readSettings(settingsPath) {
   try {
     return {
@@ -78,6 +115,34 @@ function containsAgentsInWatchHook(entry) {
   return Array.isArray(entry?.hooks) && entry.hooks.some((hook) => {
     return typeof hook?.command === "string" && hook.command.includes(AGENTS_IN_WATCH_MARKER);
   });
+}
+
+function findAgentsInWatchHookCommand(settings) {
+  const permissionHooks = Array.isArray(settings?.hooks?.PermissionRequest)
+    ? settings.hooks.PermissionRequest
+    : [];
+
+  for (const entry of permissionHooks) {
+    for (const hook of entry?.hooks ?? []) {
+      if (typeof hook?.command === "string" && hook.command.includes(AGENTS_IN_WATCH_MARKER)) {
+        return hook.command;
+      }
+    }
+  }
+
+  return null;
+}
+
+function extractEnvValue(command, name) {
+  const match = command.match(new RegExp(`${name}=('([^']*)'|"([^"]*)"|\\S+)`));
+  if (!match) {
+    return null;
+  }
+  return match[2] ?? match[3] ?? match[1];
+}
+
+function redactHookCommand(command) {
+  return command.replace(/AGENTS_IN_WATCH_TOKEN=('([^']*)'|"([^"]*)"|\S+)/, "AGENTS_IN_WATCH_TOKEN=<redacted>");
 }
 
 function shellQuote(value) {

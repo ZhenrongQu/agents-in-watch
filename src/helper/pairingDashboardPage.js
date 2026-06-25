@@ -221,6 +221,36 @@ export function renderPairingDashboardPage() {
       overflow-wrap: anywhere;
     }
 
+    .hook-details {
+      display: grid;
+      gap: 8px;
+    }
+
+    .hook-row {
+      display: grid;
+      grid-template-columns: 120px minmax(0, 1fr);
+      gap: 10px;
+      font-size: 13px;
+    }
+
+    .hook-label {
+      color: var(--muted);
+    }
+
+    .hook-value {
+      overflow-wrap: anywhere;
+    }
+
+    .hook-command {
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--bg) 72%, var(--panel));
+      font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      overflow-wrap: anywhere;
+    }
+
     .approved {
       color: var(--ok);
     }
@@ -289,6 +319,14 @@ export function renderPairingDashboardPage() {
       </section>
 
       <section>
+        <h2>Claude Code Hook</h2>
+        <div class="hook-details" id="claude-hook-details">
+          <p class="empty">Loading hook status...</p>
+        </div>
+        <p class="status" id="claude-hook-status" role="status"></p>
+      </section>
+
+      <section>
         <h2>Pending Requests</h2>
         <div class="list" id="pending-requests"><p class="empty">No pending requests.</p></div>
       </section>
@@ -315,6 +353,8 @@ export function renderPairingDashboardPage() {
     const pendingRequestsEl = document.querySelector("#pending-requests");
     const agentResponsesEl = document.querySelector("#agent-responses");
     const testRequestButton = document.querySelector("#test-request");
+    const claudeHookDetailsEl = document.querySelector("#claude-hook-details");
+    const claudeHookStatusEl = document.querySelector("#claude-hook-status");
 
     async function requestJson(path, options = {}) {
       const response = await fetch(path, {
@@ -339,6 +379,11 @@ export function renderPairingDashboardPage() {
     function setDiagnosticsStatus(message, className = "") {
       diagnosticsStatusEl.textContent = message;
       diagnosticsStatusEl.className = className ? "status " + className : "status";
+    }
+
+    function setClaudeHookStatus(message, className = "") {
+      claudeHookStatusEl.textContent = message;
+      claudeHookStatusEl.className = className ? "status " + className : "status";
     }
 
     async function loadNetworkInfo() {
@@ -428,12 +473,54 @@ export function renderPairingDashboardPage() {
       }
     }
 
+    async function loadClaudeHookStatus() {
+      try {
+        const body = await requestJson("/diagnostics/claude-hook");
+        renderClaudeHookStatus(body);
+        setClaudeHookStatus("Updated " + new Date().toLocaleTimeString(), body.installed ? "approved" : "");
+      } catch (error) {
+        setClaudeHookStatus(error.message);
+      }
+    }
+
     function renderDiagnostics(body) {
       pendingCountEl.textContent = body.summary?.pending ?? 0;
       resolvedCountEl.textContent = body.summary?.resolved ?? 0;
       responseCountEl.textContent = (body.agentResponses ?? []).length;
       renderRequestList(pendingRequestsEl, body.pendingRequests ?? [], "No pending requests.");
       renderResponseList(agentResponsesEl, body.agentResponses ?? []);
+    }
+
+    function renderClaudeHookStatus(body) {
+      const rows = [
+        ["Installed", body.installed ? "Yes" : "No"],
+        ["Helper URL", body.helperUrl ?? "Not found"],
+        ["Wait mode", body.waitForResponse ? "On" : "Off"],
+        ["Output format", body.outputFormat ?? "Not found"],
+        ["Project", body.projectDir ?? "Unknown"],
+      ];
+
+      const details = rows.map(([label, value]) => {
+        const row = document.createElement("div");
+        row.className = "hook-row";
+        const labelEl = document.createElement("div");
+        labelEl.className = "hook-label";
+        labelEl.textContent = label;
+        const valueEl = document.createElement("div");
+        valueEl.className = "hook-value";
+        valueEl.textContent = value;
+        row.append(labelEl, valueEl);
+        return row;
+      });
+
+      if (body.command) {
+        const command = document.createElement("div");
+        command.className = "hook-command";
+        command.textContent = body.command;
+        details.push(command);
+      }
+
+      claudeHookDetailsEl.replaceChildren(...details);
     }
 
     function renderRequestList(container, requests, emptyMessage) {
@@ -495,8 +582,10 @@ export function renderPairingDashboardPage() {
     startPairing();
     loadClaims();
     loadDiagnostics();
+    loadClaudeHookStatus();
     setInterval(loadClaims, 2000);
     setInterval(loadDiagnostics, 2000);
+    setInterval(loadClaudeHookStatus, 5000);
   </script>
 </body>
 </html>`;

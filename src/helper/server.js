@@ -1,4 +1,5 @@
 import http from "node:http";
+import { inspectClaudeCodeVsCodeHook } from "../adapters/claudeCodeSettingsInstaller.js";
 import { getPairingNetworkInfo } from "./networkInfo.js";
 import { createPairingManager } from "./pairingManager.js";
 import { renderPairingDashboardPage } from "./pairingDashboardPage.js";
@@ -9,9 +10,12 @@ export function createServer({
   pairing = createPairingManager(),
   authRequired = false,
   networkInterfaces,
+  projectDir = process.cwd(),
 } = {}) {
   return http.createServer(async (request, response) => {
     try {
+      const url = new URL(request.url, "http://localhost");
+
       if (request.method === "GET" && request.url === "/health") {
         return sendJson(response, 200, { ok: true });
       }
@@ -38,6 +42,12 @@ export function createServer({
 
       if (request.method === "GET" && request.url === "/diagnostics") {
         return sendJson(response, 200, store.diagnostics());
+      }
+
+      if (request.method === "GET" && url.pathname === "/diagnostics/claude-hook") {
+        return sendJson(response, 200, await inspectClaudeCodeVsCodeHook({
+          projectDir: url.searchParams.get("projectDir") ?? projectDir,
+        }));
       }
 
       if (request.method === "POST" && request.url === "/diagnostics/test-request") {

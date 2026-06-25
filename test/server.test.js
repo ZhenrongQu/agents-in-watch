@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import test from "node:test";
 import { createServer } from "../src/helper/server.js";
 
@@ -162,7 +165,9 @@ test("serves a local pairing dashboard without request auth", async () => {
     assert.match(html, /\/pairing\/claims/);
     assert.match(html, /Pending Requests/);
     assert.match(html, /Agent Responses/);
+    assert.match(html, /Claude Code Hook/);
     assert.match(html, /\/diagnostics/);
+    assert.match(html, /\/diagnostics\/claude-hook/);
     assert.match(html, /\/diagnostics\/test-request/);
   } finally {
     await close(app);
@@ -454,6 +459,50 @@ test("creates a control center test request without request auth", async () => {
     const diagnosticsResponse = await fetch(`${baseUrl}/diagnostics`);
     const diagnostics = await diagnosticsResponse.json();
     assert.equal(diagnostics.pendingRequests[0].id, body.id);
+  } finally {
+    await close(app);
+  }
+});
+
+test("reports Claude Code hook diagnostics without request auth", async () => {
+  const projectDir = await mkdtemp(path.join(tmpdir(), "agents-in-watch-server-settings-"));
+  const settingsDir = path.join(projectDir, ".claude");
+  await mkdir(settingsDir, { recursive: true });
+  await writeFile(
+    path.join(settingsDir, "settings.local.json"),
+    JSON.stringify({
+      hooks: {
+        PermissionRequest: [
+          {
+            matcher: "*",
+            hooks: [
+              {
+                type: "command",
+                command:
+                  "/usr/bin/env AGENTS_IN_WATCH_WAIT_FOR_RESPONSE=1 AGENTS_IN_WATCH_OUTPUT_FORMAT=claude-code AGENTS_IN_WATCH_HELPER_URL=http://127.0.0.1:42731 AGENTS_IN_WATCH_TOKEN=secret node /repo/scripts/claude-code-hook.js",
+                timeout: 300,
+              },
+            ],
+          },
+        ],
+      },
+    })
+  );
+  const app = createServer({ authRequired: true });
+  const baseUrl = await listen(app);
+
+  try {
+    const response = await fetch(`${baseUrl}/diagnostics/claude-hook?projectDir=${encodeURIComponent(projectDir)}`);
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.projectDir, projectDir);
+    assert.equal(body.installed, true);
+    assert.equal(body.helperUrl, "http://127.0.0.1:42731");
+    assert.equal(body.waitForResponse, true);
+    assert.equal(body.outputFormat, "claude-code");
+    assert.match(body.command, /AGENTS_IN_WATCH_TOKEN=<redacted>/);
+    assert.doesNotMatch(body.command, /secret/);
   } finally {
     await close(app);
   }
