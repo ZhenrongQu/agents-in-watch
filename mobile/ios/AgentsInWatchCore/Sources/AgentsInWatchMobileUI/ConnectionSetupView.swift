@@ -4,19 +4,35 @@ struct ConnectionSetupView: View {
     @ObservedObject var model: CompanionViewModel
 
     var body: some View {
-        Form {
-            Section("Computer Helper") {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Connect")
+                        .font(.largeTitle.bold())
+                    Text("Pair this iPhone with your Mac helper.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 10)
+
+                SurfaceCard {
+                    Label("Computer Helper", systemImage: "desktopcomputer")
+                        .font(.headline)
+
                 TextField("Helper URL", text: $model.helperURLText)
                     .textContentType(.URL)
                     .modifier(URLFieldModifier())
+                    .textFieldStyle(.roundedBorder)
 
                 TextField("Pairing code", text: $model.pairingCode)
                     .modifier(PairingCodeFieldModifier())
+                    .textFieldStyle(.roundedBorder)
 
                 TextField("Device name", text: $model.deviceName)
+                    .textFieldStyle(.roundedBorder)
             }
 
-            Section {
+                SurfaceCard {
                 switch model.phase {
                 case .disconnected:
                     Button {
@@ -24,6 +40,7 @@ struct ConnectionSetupView: View {
                     } label: {
                         Label("Pair iPhone", systemImage: "iphone.gen3.radiowaves.left.and.right")
                     }
+                    .buttonStyle(.borderedProminent)
                     .disabled(model.isLoading)
                 case .awaitingApproval:
                     Button {
@@ -31,6 +48,7 @@ struct ConnectionSetupView: View {
                     } label: {
                         Label("Check Approval", systemImage: "arrow.clockwise")
                     }
+                    .buttonStyle(.borderedProminent)
                     .disabled(model.isLoading)
                 case .connected:
                     EmptyView()
@@ -38,18 +56,24 @@ struct ConnectionSetupView: View {
             }
 
             if model.isLoading {
-                Section {
+                    SurfaceCard {
                     ProgressView()
+                            .frame(maxWidth: .infinity)
                 }
             }
 
             if let errorMessage = model.errorMessage {
-                Section {
+                    SurfaceCard {
                     Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.red)
                 }
             }
         }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 24)
+        }
+        .scrollContentBackground(.hidden)
+        .background(AppSurface.background.ignoresSafeArea())
     }
 }
 

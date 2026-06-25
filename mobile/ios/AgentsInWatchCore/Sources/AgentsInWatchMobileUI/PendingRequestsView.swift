@@ -5,58 +5,66 @@ struct PendingRequestsView: View {
     @ObservedObject var model: CompanionViewModel
 
     var body: some View {
-        List {
-            Section("Watch") {
-                Label(model.watchStatus.title, systemImage: "applewatch")
-                    .font(.subheadline)
-                Text(model.watchStatus.detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Requests")
+                        .font(.largeTitle.bold())
+                    Text("Remote approvals from your agent sessions.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 10)
 
-            Section("Notifications") {
-                Label(model.notificationStatus.title, systemImage: "bell")
-                    .font(.subheadline)
-                Text(model.notificationStatus.detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+                SurfaceCard {
+                    StatusLine(title: model.watchStatus.title, detail: model.watchStatus.detail, systemImage: "applewatch")
+                    Divider()
+                    StatusLine(title: model.notificationStatus.title, detail: model.notificationStatus.detail, systemImage: "bell")
+                    Divider()
+                    StatusLine(title: model.autoRefreshStatus.title, detail: model.autoRefreshStatus.detail, systemImage: "arrow.triangle.2.circlepath")
+                }
 
-            Section("Auto Refresh") {
-                Label(model.autoRefreshStatus.title, systemImage: "arrow.triangle.2.circlepath")
-                    .font(.subheadline)
-                Text(model.autoRefreshStatus.detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            if model.pendingRequests.isEmpty {
-                ContentUnavailableView(
-                    "No Pending Requests",
-                    systemImage: "checkmark.circle",
-                    description: Text("Your agents are not waiting for a response.")
-                )
-                .listRowSeparator(.hidden)
-            } else {
-                ForEach(model.pendingRequests) { request in
-                    RequestRow(request: request) { action, message in
-                        Task {
-                            await model.send(action: action, for: request, message: message)
+                if model.pendingRequests.isEmpty {
+                    SurfaceCard {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(.green)
+                            Text("No Pending Requests")
+                                .font(.headline)
+                            Text("Your agents are not waiting for a response.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } else {
+                    ForEach(model.pendingRequests) { request in
+                        RequestRow(request: request) { action, message in
+                            Task {
+                                await model.send(action: action, for: request, message: message)
+                            }
                         }
                     }
                 }
-            }
 
-            if model.isLoading {
-                ProgressView()
-            }
+                if model.isLoading {
+                    SurfaceCard {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                    }
+                }
 
-            if let errorMessage = model.errorMessage {
-                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.red)
+                if let errorMessage = model.errorMessage {
+                    SurfaceCard {
+                        Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.red)
+                    }
+                }
             }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 24)
         }
-        .navigationTitle("Requests")
+        .background(AppSurface.background.ignoresSafeArea())
         .refreshable {
             await model.loadPendingRequests()
         }
@@ -146,7 +154,9 @@ private struct RequestRow: View {
             }
             .buttonStyle(.bordered)
         }
-        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(AppSurface.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .sheet(isPresented: $isReplySheetPresented) {
             ReplySheet(replyText: $replyText) {
                 onAction(.reply, replyText)

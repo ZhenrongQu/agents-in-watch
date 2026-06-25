@@ -20,6 +20,9 @@ public struct CompanionRootView: View {
                 }
             }
             .navigationTitle("Agents")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
         }
     }
 }

@@ -9,28 +9,18 @@ public struct WatchRequestsView: View {
     }
 
     public var body: some View {
-        NavigationStack {
-            List {
-                VStack(alignment: .leading, spacing: 4) {
-                    Label(model.responseStatus.title, systemImage: "iphone")
-                        .font(.caption)
-                    Text(model.responseStatus.detail)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.vertical, 4)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Agents")
+                    .font(.headline)
+
+                WatchStatusCard(
+                    title: model.responseStatus.title,
+                    detail: model.responseStatus.detail
+                )
 
                 if model.requests.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Image(systemName: "checkmark.circle")
-                            .foregroundStyle(.green)
-                        Text("No Requests")
-                            .font(.headline)
-                        Text("Agents are not waiting.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 8)
+                    WatchEmptyState()
                 } else {
                     ForEach(model.requests) { request in
                         WatchRequestRow(request: request, model: model)
@@ -39,12 +29,58 @@ public struct WatchRequestsView: View {
 
                 if let errorMessage = model.errorMessage {
                     Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
+                        .font(.caption2)
                         .foregroundStyle(.red)
+                        .padding(8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.red.opacity(0.14), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
             }
-            .navigationTitle("Agents")
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
         }
+        .background(Color.black.ignoresSafeArea())
+    }
+}
+
+private struct WatchStatusCard: View {
+    let title: String
+    let detail: String
+
+    var body: some View {
+        Label {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                Text(detail)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+        } icon: {
+            Image(systemName: "iphone")
+                .foregroundStyle(.blue)
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private struct WatchEmptyState: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+            Text("No Requests")
+                .font(.headline)
+            Text("Agents are not waiting.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 
@@ -81,7 +117,9 @@ private struct WatchRequestRow: View {
             }
             .buttonStyle(.bordered)
         }
-        .padding(.vertical, 4)
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .sheet(isPresented: $isReplyPresented) {
             NavigationStack {
                 TextField("Reply", text: $replyText)
