@@ -21,7 +21,7 @@ public struct CompanionRootView: View {
             }
             .navigationTitle("Agents")
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
             #endif
         }
     }

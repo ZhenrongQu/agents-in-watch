@@ -1,15 +1,31 @@
 import SwiftUI
 
+#if os(iOS)
+import UIKit
+#endif
+
 #if os(macOS)
 import AppKit
 #endif
 
 enum AppSurface {
     #if os(iOS)
+    private static let iOSBackgroundTop = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.07, green: 0.075, blue: 0.09, alpha: 1)
+            : .systemBackground
+    })
+
+    private static let iOSBackgroundBottom = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.045, green: 0.05, blue: 0.065, alpha: 1)
+            : .secondarySystemBackground
+    })
+
     static let background = LinearGradient(
         colors: [
-            Color(uiColor: .systemBackground),
-            Color(uiColor: .secondarySystemBackground)
+            iOSBackgroundTop,
+            iOSBackgroundBottom
         ],
         startPoint: .top,
         endPoint: .bottom

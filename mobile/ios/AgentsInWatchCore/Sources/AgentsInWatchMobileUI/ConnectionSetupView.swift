@@ -8,12 +8,12 @@ struct ConnectionSetupView: View {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Connect")
-                        .font(.largeTitle.bold())
+                        .font(.title.bold())
                     Text("Pair this iPhone with your Mac helper.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
-                .padding(.top, 10)
+                .padding(.top, 8)
 
                 SurfaceCard {
                     Label("Computer Helper", systemImage: "desktopcomputer")

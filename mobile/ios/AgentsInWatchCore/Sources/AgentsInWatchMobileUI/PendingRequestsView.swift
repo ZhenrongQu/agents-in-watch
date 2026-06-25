@@ -7,14 +7,38 @@ struct PendingRequestsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Requests")
-                        .font(.largeTitle.bold())
-                    Text("Remote approvals from your agent sessions.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                HStack(alignment: .center, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Requests")
+                            .font(.title.bold())
+                        Text("Remote approvals from your agent sessions.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    HStack(spacing: 8) {
+                        Button {
+                            Task { await model.loadPendingRequests() }
+                        } label: {
+                            Image(systemName: "arrow.clockwise")
+                                .frame(width: 34, height: 34)
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(model.isLoading)
+
+                        Button(role: .destructive) {
+                            model.disconnect()
+                        } label: {
+                            Image(systemName: "iphone.slash")
+                                .frame(width: 34, height: 34)
+                        }
+                        .buttonStyle(.bordered)
+                    }
                 }
-                .padding(.top, 10)
+                .padding(.top, 8)
 
                 SurfaceCard {
                     StatusLine(title: model.watchStatus.title, detail: model.watchStatus.detail, systemImage: "applewatch")
@@ -67,39 +91,6 @@ struct PendingRequestsView: View {
         .background(AppSurface.background.ignoresSafeArea())
         .refreshable {
             await model.loadPendingRequests()
-        }
-        .toolbar {
-            #if os(iOS)
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Button {
-                    Task { await model.loadPendingRequests() }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .disabled(model.isLoading)
-
-                Button(role: .destructive) {
-                    model.disconnect()
-                } label: {
-                    Image(systemName: "iphone.slash")
-                }
-            }
-            #else
-            ToolbarItemGroup(placement: .automatic) {
-                Button {
-                    Task { await model.loadPendingRequests() }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .disabled(model.isLoading)
-
-                Button(role: .destructive) {
-                    model.disconnect()
-                } label: {
-                    Image(systemName: "iphone.slash")
-                }
-            }
-            #endif
         }
         .task {
             if model.pendingRequests.isEmpty {
