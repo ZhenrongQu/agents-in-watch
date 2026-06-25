@@ -49,7 +49,7 @@ struct PendingRequestsView: View {
                 .padding(.bottom, 18)
             }
         }
-        .background(AppSurface.background.ignoresSafeArea())
+        .background(AppSurface.background)
         .refreshable {
             await model.loadPendingRequests()
         }

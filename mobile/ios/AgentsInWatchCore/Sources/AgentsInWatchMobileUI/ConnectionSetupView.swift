@@ -73,7 +73,7 @@ struct ConnectionSetupView: View {
             .padding(.bottom, 24)
         }
         .scrollContentBackground(.hidden)
-        .background(AppSurface.background.ignoresSafeArea())
+        .background(AppSurface.background)
     }
 }
 

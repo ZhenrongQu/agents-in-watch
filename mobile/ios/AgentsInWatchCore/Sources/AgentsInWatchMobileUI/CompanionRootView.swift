@@ -10,7 +10,10 @@ public struct CompanionRootView: View {
     }
 
     public var body: some View {
-        NavigationStack {
+        ZStack {
+            AppSurface.background
+                .ignoresSafeArea()
+
             Group {
                 switch model.phase {
                 case .disconnected, .awaitingApproval:
@@ -19,10 +22,7 @@ public struct CompanionRootView: View {
                     PendingRequestsView(model: model)
                 }
             }
-            .navigationTitle("Agents")
-            #if os(iOS)
-            .toolbar(.hidden, for: .navigationBar)
-            #endif
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 }
