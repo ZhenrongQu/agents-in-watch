@@ -1,5 +1,9 @@
 import http from "node:http";
-import { inspectClaudeCodeVsCodeHook } from "../adapters/claudeCodeSettingsInstaller.js";
+import path from "node:path";
+import {
+  inspectClaudeCodeVsCodeHook,
+  installClaudeCodeVsCodeHook,
+} from "../adapters/claudeCodeSettingsInstaller.js";
 import { getPairingNetworkInfo } from "./networkInfo.js";
 import { createPairingManager } from "./pairingManager.js";
 import { renderPairingDashboardPage } from "./pairingDashboardPage.js";
@@ -11,6 +15,9 @@ export function createServer({
   authRequired = false,
   networkInterfaces,
   projectDir = process.cwd(),
+  hookScriptPath = path.join(process.cwd(), "scripts", "claude-code-hook.js"),
+  isLoopbackRequest = isRequestFromLoopback,
+  nodePath = process.execPath,
 } = {}) {
   return http.createServer(async (request, response) => {
     try {
@@ -47,6 +54,24 @@ export function createServer({
       if (request.method === "GET" && url.pathname === "/diagnostics/claude-hook") {
         return sendJson(response, 200, await inspectClaudeCodeVsCodeHook({
           projectDir: url.searchParams.get("projectDir") ?? projectDir,
+        }));
+      }
+
+      if (request.method === "POST" && url.pathname === "/diagnostics/claude-hook/install") {
+        if (!isLoopbackRequest(request)) {
+          return sendJson(response, 403, { error: "hook install is only available from this Mac" });
+        }
+
+        const body = await readJson(request);
+        const targetProjectDir = body.projectDir ?? projectDir;
+        await installClaudeCodeVsCodeHook({
+          helperUrl: body.helperUrl ?? "http://127.0.0.1:42731",
+          hookScriptPath,
+          nodePath,
+          projectDir: targetProjectDir,
+        });
+        return sendJson(response, 200, await inspectClaudeCodeVsCodeHook({
+          projectDir: targetProjectDir,
         }));
       }
 
@@ -177,6 +202,11 @@ function sendHtml(response, statusCode, html) {
     "content-type": "text/html; charset=utf-8",
   });
   response.end(html);
+}
+
+function isRequestFromLoopback(request) {
+  const address = request.socket.remoteAddress;
+  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

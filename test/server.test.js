@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -166,8 +166,12 @@ test("serves a local pairing dashboard without request auth", async () => {
     assert.match(html, /Pending Requests/);
     assert.match(html, /Agent Responses/);
     assert.match(html, /Claude Code Hook/);
+    assert.match(html, /project-path/);
+    assert.match(html, /project-recents/);
+    assert.match(html, /Install Hook/);
     assert.match(html, /\/diagnostics/);
     assert.match(html, /\/diagnostics\/claude-hook/);
+    assert.match(html, /\/diagnostics\/claude-hook\/install/);
     assert.match(html, /\/diagnostics\/test-request/);
   } finally {
     await close(app);
@@ -503,6 +507,63 @@ test("reports Claude Code hook diagnostics without request auth", async () => {
     assert.equal(body.outputFormat, "claude-code");
     assert.match(body.command, /AGENTS_IN_WATCH_TOKEN=<redacted>/);
     assert.doesNotMatch(body.command, /secret/);
+  } finally {
+    await close(app);
+  }
+});
+
+test("installs Claude Code hook diagnostics from loopback only", async () => {
+  const projectDir = await mkdtemp(path.join(tmpdir(), "agents-in-watch-install-settings-"));
+  const app = createServer({
+    authRequired: true,
+    hookScriptPath: "/repo/scripts/claude-code-hook.js",
+    isLoopbackRequest: () => true,
+    nodePath: "node",
+  });
+  const baseUrl = await listen(app);
+
+  try {
+    const response = await fetch(`${baseUrl}/diagnostics/claude-hook/install`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        projectDir,
+        helperUrl: "http://127.0.0.1:42731",
+      }),
+    });
+    const body = await response.json();
+    const settings = JSON.parse(await readFile(path.join(projectDir, ".claude", "settings.local.json"), "utf8"));
+
+    assert.equal(response.status, 200);
+    assert.equal(body.installed, true);
+    assert.equal(body.projectDir, projectDir);
+    assert.equal(body.helperUrl, "http://127.0.0.1:42731");
+    assert.match(settings.hooks.PermissionRequest[0].hooks[0].command, /scripts\/claude-code-hook\.js/);
+  } finally {
+    await close(app);
+  }
+});
+
+test("rejects remote Claude Code hook install attempts", async () => {
+  const projectDir = await mkdtemp(path.join(tmpdir(), "agents-in-watch-install-settings-"));
+  const app = createServer({
+    isLoopbackRequest: () => false,
+  });
+  const baseUrl = await listen(app);
+
+  try {
+    const response = await fetch(`${baseUrl}/diagnostics/claude-hook/install`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        projectDir,
+        helperUrl: "http://127.0.0.1:42731",
+      }),
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 403);
+    assert.equal(body.error, "hook install is only available from this Mac");
   } finally {
     await close(app);
   }

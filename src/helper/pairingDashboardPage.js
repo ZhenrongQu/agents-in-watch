@@ -95,6 +95,17 @@ export function renderPairingDashboardPage() {
       opacity: 0.6;
     }
 
+    input, select {
+      min-height: 36px;
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel);
+      color: var(--fg);
+      padding: 0 10px;
+      font: inherit;
+    }
+
     .grid {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -226,6 +237,18 @@ export function renderPairingDashboardPage() {
       gap: 8px;
     }
 
+    .project-controls {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
     .hook-row {
       display: grid;
       grid-template-columns: 120px minmax(0, 1fr);
@@ -320,6 +343,16 @@ export function renderPairingDashboardPage() {
 
       <section>
         <h2>Claude Code Hook</h2>
+        <div class="project-controls">
+          <input id="project-path" type="text" placeholder="/Users/you/path/to/project" autocomplete="off">
+          <select id="project-recents" aria-label="Recent projects">
+            <option value="">Recent projects</option>
+          </select>
+          <div class="button-row">
+            <button id="check-hook" type="button">Check Hook</button>
+            <button id="install-hook" class="primary" type="button">Install Hook</button>
+          </div>
+        </div>
         <div class="hook-details" id="claude-hook-details">
           <p class="empty">Loading hook status...</p>
         </div>
@@ -355,6 +388,11 @@ export function renderPairingDashboardPage() {
     const testRequestButton = document.querySelector("#test-request");
     const claudeHookDetailsEl = document.querySelector("#claude-hook-details");
     const claudeHookStatusEl = document.querySelector("#claude-hook-status");
+    const projectPathEl = document.querySelector("#project-path");
+    const projectRecentsEl = document.querySelector("#project-recents");
+    const checkHookButton = document.querySelector("#check-hook");
+    const installHookButton = document.querySelector("#install-hook");
+    const projectRecentsKey = "agentsInWatch.projectRecents";
 
     async function requestJson(path, options = {}) {
       const response = await fetch(path, {
@@ -475,11 +513,39 @@ export function renderPairingDashboardPage() {
 
     async function loadClaudeHookStatus() {
       try {
-        const body = await requestJson("/diagnostics/claude-hook");
+        const projectDir = getProjectPath();
+        const query = projectDir ? "?projectDir=" + encodeURIComponent(projectDir) : "";
+        const body = await requestJson("/diagnostics/claude-hook" + query);
         renderClaudeHookStatus(body);
+        rememberProject(body.projectDir);
         setClaudeHookStatus("Updated " + new Date().toLocaleTimeString(), body.installed ? "approved" : "");
       } catch (error) {
         setClaudeHookStatus(error.message);
+      }
+    }
+
+    async function installClaudeHook() {
+      installHookButton.disabled = true;
+      try {
+        const projectDir = getProjectPath();
+        if (!projectDir) {
+          throw new Error("Enter a project path first.");
+        }
+
+        const body = await requestJson("/diagnostics/claude-hook/install", {
+          method: "POST",
+          body: JSON.stringify({
+            projectDir,
+            helperUrl: helperUrlEl.textContent || window.location.origin
+          })
+        });
+        renderClaudeHookStatus(body);
+        rememberProject(body.projectDir);
+        setClaudeHookStatus("Hook installed.", "approved");
+      } catch (error) {
+        setClaudeHookStatus(error.message);
+      } finally {
+        installHookButton.disabled = false;
       }
     }
 
@@ -521,6 +587,51 @@ export function renderPairingDashboardPage() {
       }
 
       claudeHookDetailsEl.replaceChildren(...details);
+    }
+
+    function getProjectPath() {
+      return projectPathEl.value.trim();
+    }
+
+    function loadProjectRecents() {
+      const recents = readProjectRecents();
+      projectRecentsEl.replaceChildren(
+        option("Recent projects", ""),
+        ...recents.map((project) => option(project, project))
+      );
+      if (recents[0]) {
+        projectPathEl.value = recents[0];
+      }
+    }
+
+    function rememberProject(projectDir) {
+      if (!projectDir) {
+        return;
+      }
+
+      const recents = [projectDir, ...readProjectRecents().filter((item) => item !== projectDir)].slice(0, 6);
+      localStorage.setItem(projectRecentsKey, JSON.stringify(recents));
+      projectRecentsEl.replaceChildren(
+        option("Recent projects", ""),
+        ...recents.map((project) => option(project, project))
+      );
+      projectPathEl.value = projectDir;
+    }
+
+    function readProjectRecents() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(projectRecentsKey) ?? "[]");
+        return Array.isArray(parsed) ? parsed.filter((item) => typeof item === "string") : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function option(label, value) {
+      const item = document.createElement("option");
+      item.textContent = label;
+      item.value = value;
+      return item;
     }
 
     function renderRequestList(container, requests, emptyMessage) {
@@ -578,7 +689,16 @@ export function renderPairingDashboardPage() {
 
     newCodeButton.addEventListener("click", startPairing);
     testRequestButton.addEventListener("click", createTestRequest);
+    checkHookButton.addEventListener("click", loadClaudeHookStatus);
+    installHookButton.addEventListener("click", installClaudeHook);
+    projectRecentsEl.addEventListener("change", () => {
+      if (projectRecentsEl.value) {
+        projectPathEl.value = projectRecentsEl.value;
+        loadClaudeHookStatus();
+      }
+    });
     loadNetworkInfo();
+    loadProjectRecents();
     startPairing();
     loadClaims();
     loadDiagnostics();
