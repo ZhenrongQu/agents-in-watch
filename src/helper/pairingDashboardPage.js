@@ -170,6 +170,57 @@ export function renderPairingDashboardPage() {
       font-size: 13px;
     }
 
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: color-mix(in srgb, var(--bg) 72%, var(--panel));
+    }
+
+    .metric-value {
+      font-size: 24px;
+      font-weight: 760;
+      line-height: 1;
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
+    .list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .item {
+      border-top: 1px solid var(--line);
+      padding-top: 10px;
+    }
+
+    .item:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .item-title {
+      font-weight: 650;
+      overflow-wrap: anywhere;
+    }
+
+    .item-meta {
+      color: var(--muted);
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
     .approved {
       color: var(--ok);
     }
@@ -216,6 +267,36 @@ export function renderPairingDashboardPage() {
         <div id="claims"><p class="empty">No device requests.</p></div>
         <p class="status" id="status" role="status"></p>
       </section>
+
+      <section>
+        <h2>Helper Status</h2>
+        <div class="metrics">
+          <div class="metric">
+            <div class="metric-value" id="pending-count">0</div>
+            <div class="metric-label">Pending</div>
+          </div>
+          <div class="metric">
+            <div class="metric-value" id="resolved-count">0</div>
+            <div class="metric-label">Resolved</div>
+          </div>
+          <div class="metric">
+            <div class="metric-value" id="response-count">0</div>
+            <div class="metric-label">Unacked</div>
+          </div>
+        </div>
+        <p class="status" id="diagnostics-status" role="status">Loading diagnostics...</p>
+        <button id="test-request" type="button">Create Test Request</button>
+      </section>
+
+      <section>
+        <h2>Pending Requests</h2>
+        <div class="list" id="pending-requests"><p class="empty">No pending requests.</p></div>
+      </section>
+
+      <section>
+        <h2>Agent Responses</h2>
+        <div class="list" id="agent-responses"><p class="empty">No unacknowledged responses.</p></div>
+      </section>
     </div>
   </main>
 
@@ -227,6 +308,13 @@ export function renderPairingDashboardPage() {
     const claimsEl = document.querySelector("#claims");
     const statusEl = document.querySelector("#status");
     const newCodeButton = document.querySelector("#new-code");
+    const pendingCountEl = document.querySelector("#pending-count");
+    const resolvedCountEl = document.querySelector("#resolved-count");
+    const responseCountEl = document.querySelector("#response-count");
+    const diagnosticsStatusEl = document.querySelector("#diagnostics-status");
+    const pendingRequestsEl = document.querySelector("#pending-requests");
+    const agentResponsesEl = document.querySelector("#agent-responses");
+    const testRequestButton = document.querySelector("#test-request");
 
     async function requestJson(path, options = {}) {
       const response = await fetch(path, {
@@ -246,6 +334,11 @@ export function renderPairingDashboardPage() {
     function setStatus(message, className = "") {
       statusEl.textContent = message;
       statusEl.className = className ? "status " + className : "status";
+    }
+
+    function setDiagnosticsStatus(message, className = "") {
+      diagnosticsStatusEl.textContent = message;
+      diagnosticsStatusEl.className = className ? "status " + className : "status";
     }
 
     async function loadNetworkInfo() {
@@ -325,11 +418,85 @@ export function renderPairingDashboardPage() {
       }
     }
 
+    async function loadDiagnostics() {
+      try {
+        const body = await requestJson("/diagnostics");
+        renderDiagnostics(body);
+        setDiagnosticsStatus("Updated " + new Date().toLocaleTimeString(), "approved");
+      } catch (error) {
+        setDiagnosticsStatus(error.message);
+      }
+    }
+
+    function renderDiagnostics(body) {
+      pendingCountEl.textContent = body.summary?.pending ?? 0;
+      resolvedCountEl.textContent = body.summary?.resolved ?? 0;
+      responseCountEl.textContent = (body.agentResponses ?? []).length;
+      renderRequestList(pendingRequestsEl, body.pendingRequests ?? [], "No pending requests.");
+      renderResponseList(agentResponsesEl, body.agentResponses ?? []);
+    }
+
+    function renderRequestList(container, requests, emptyMessage) {
+      if (requests.length === 0) {
+        container.innerHTML = '<p class="empty">' + emptyMessage + '</p>';
+        return;
+      }
+
+      container.replaceChildren(...requests.slice(0, 8).map((request) => {
+        const item = document.createElement("div");
+        item.className = "item";
+        const title = document.createElement("div");
+        title.className = "item-title";
+        title.textContent = request.title;
+        const meta = document.createElement("div");
+        meta.className = "item-meta";
+        meta.textContent = request.agentType + " · " + request.sessionId;
+        item.append(title, meta);
+        return item;
+      }));
+    }
+
+    function renderResponseList(container, responses) {
+      if (responses.length === 0) {
+        container.innerHTML = '<p class="empty">No unacknowledged responses.</p>';
+        return;
+      }
+
+      container.replaceChildren(...responses.slice(0, 8).map((response) => {
+        const item = document.createElement("div");
+        item.className = "item";
+        const title = document.createElement("div");
+        title.className = "item-title";
+        title.textContent = response.title;
+        const meta = document.createElement("div");
+        meta.className = "item-meta";
+        meta.textContent = response.response.action + " · " + response.agentType + " · " + response.sessionId;
+        item.append(title, meta);
+        return item;
+      }));
+    }
+
+    async function createTestRequest() {
+      testRequestButton.disabled = true;
+      try {
+        await requestJson("/diagnostics/test-request", { method: "POST" });
+        setDiagnosticsStatus("Test request created.", "approved");
+        await loadDiagnostics();
+      } catch (error) {
+        setDiagnosticsStatus(error.message);
+      } finally {
+        testRequestButton.disabled = false;
+      }
+    }
+
     newCodeButton.addEventListener("click", startPairing);
+    testRequestButton.addEventListener("click", createTestRequest);
     loadNetworkInfo();
     startPairing();
     loadClaims();
+    loadDiagnostics();
     setInterval(loadClaims, 2000);
+    setInterval(loadDiagnostics, 2000);
   </script>
 </body>
 </html>`;

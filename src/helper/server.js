@@ -36,6 +36,26 @@ export function createServer({
         }));
       }
 
+      if (request.method === "GET" && request.url === "/diagnostics") {
+        return sendJson(response, 200, store.diagnostics());
+      }
+
+      if (request.method === "POST" && request.url === "/diagnostics/test-request") {
+        const created = store.add({
+          agentType: "claude-code",
+          projectName: "agents-in-watch",
+          computerName: "control-center",
+          sessionId: `control-center-${Date.now()}`,
+          requestType: "approval",
+          title: "Control Center Test",
+          watchSummary: "Claude wants to verify the iPhone and Watch connection",
+          phoneContext: "Manual test request created from the Agents in Watch Control Center.",
+          actions: ["allow", "deny", "pause"],
+          riskLevel: "low",
+        });
+        return sendJson(response, 201, created);
+      }
+
       if (request.method === "POST" && request.url === "/pairing/sessions") {
         return sendJson(response, 201, pairing.createSession());
       }

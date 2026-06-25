@@ -25,6 +25,14 @@ export function createRequestStore() {
         .sort((a, b) => b.sequence - a.sequence);
     },
 
+    listResolved(limit = 10) {
+      return [...requests.values()]
+        .filter((request) => request.status === "resolved")
+        .sort((a, b) => b.sequence - a.sequence)
+        .slice(0, limit)
+        .map(({ sequence, ...request }) => request);
+    },
+
     summary() {
       const allRequests = [...requests.values()];
       return {
@@ -78,6 +86,15 @@ export function createRequestStore() {
         .filter((item) => !filters.sessionId || item.sessionId === filters.sessionId)
         .sort((a, b) => a.sequence - b.sequence)
         .map(({ sequence, ...item }) => item);
+    },
+
+    diagnostics() {
+      return {
+        summary: this.summary(),
+        pendingRequests: this.listPending().map(({ sequence, ...request }) => request),
+        resolvedRequests: this.listResolved(10),
+        agentResponses: this.listAgentResponses(),
+      };
     },
 
     ackAgentResponse(id) {

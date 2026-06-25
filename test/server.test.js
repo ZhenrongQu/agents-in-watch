@@ -160,6 +160,10 @@ test("serves a local pairing dashboard without request auth", async () => {
     assert.match(html, /\/pairing\/network/);
     assert.match(html, /\/pairing\/sessions/);
     assert.match(html, /\/pairing\/claims/);
+    assert.match(html, /Pending Requests/);
+    assert.match(html, /Agent Responses/);
+    assert.match(html, /\/diagnostics/);
+    assert.match(html, /\/diagnostics\/test-request/);
   } finally {
     await close(app);
   }
@@ -360,6 +364,96 @@ test("lists and acknowledges agent responses over HTTP", async () => {
     const afterAckResponse = await fetch(`${baseUrl}/agent-responses?agentType=codex-desktop`);
     const afterAck = await afterAckResponse.json();
     assert.deepEqual(afterAck.responses, []);
+  } finally {
+    await close(app);
+  }
+});
+
+test("reports control center diagnostics without request auth", async () => {
+  const app = createServer();
+  const baseUrl = await listen(app);
+
+  try {
+    const firstCreateResponse = await fetch(`${baseUrl}/requests`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        agentType: "claude-code",
+        projectName: "agents-in-watch",
+        computerName: "work-mac",
+        sessionId: "session-1",
+        requestType: "approval",
+        title: "Pending request",
+        watchSummary: "Claude wants to run npm test",
+        phoneContext: "Command: npm test",
+        actions: ["allow", "deny"],
+        riskLevel: "low",
+      }),
+    });
+    const pending = await firstCreateResponse.json();
+
+    const secondCreateResponse = await fetch(`${baseUrl}/requests`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        agentType: "claude-code",
+        projectName: "agents-in-watch",
+        computerName: "work-mac",
+        sessionId: "session-2",
+        requestType: "approval",
+        title: "Resolved request",
+        watchSummary: "Claude wants to run swift test",
+        phoneContext: "Command: swift test",
+        actions: ["allow", "deny"],
+        riskLevel: "low",
+      }),
+    });
+    const resolved = await secondCreateResponse.json();
+
+    await fetch(`${baseUrl}/requests/${resolved.id}/response`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "allow" }),
+    });
+
+    const response = await fetch(`${baseUrl}/diagnostics`);
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.summary.pending, 1);
+    assert.equal(body.summary.resolved, 1);
+    assert.equal(body.pendingRequests[0].id, pending.id);
+    assert.equal(body.resolvedRequests[0].id, resolved.id);
+    assert.equal(body.agentResponses[0].requestId, resolved.id);
+    assert.equal(body.agentResponses[0].response.action, "allow");
+  } finally {
+    await close(app);
+  }
+});
+
+test("creates a control center test request without request auth", async () => {
+  const app = createServer({ authRequired: true });
+  const baseUrl = await listen(app);
+
+  try {
+    const response = await fetch(`${baseUrl}/diagnostics/test-request`, {
+      method: "POST",
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 201);
+    assert.equal(body.title, "Control Center Test");
+    assert.equal(body.status, "pending");
+    assert.equal(body.actions.includes("allow"), true);
+
+    const pendingResponse = await fetch(`${baseUrl}/requests`);
+    const pending = await pendingResponse.json();
+    assert.equal(pendingResponse.status, 401);
+    assert.equal(pending.error, "missing bearer token");
+
+    const diagnosticsResponse = await fetch(`${baseUrl}/diagnostics`);
+    const diagnostics = await diagnosticsResponse.json();
+    assert.equal(diagnostics.pendingRequests[0].id, body.id);
   } finally {
     await close(app);
   }
