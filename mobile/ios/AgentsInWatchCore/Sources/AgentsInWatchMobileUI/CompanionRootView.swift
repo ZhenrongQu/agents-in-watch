@@ -24,5 +24,8 @@ public struct CompanionRootView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        #if os(iOS)
+        .preferredColorScheme(.light)
+        #endif
     }
 }

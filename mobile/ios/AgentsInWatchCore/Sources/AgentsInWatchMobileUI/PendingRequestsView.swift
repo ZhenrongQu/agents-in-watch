@@ -146,7 +146,7 @@ private struct StatusTile: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(AppSurface.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .surfaceCardBackground()
     }
 }
 
@@ -180,7 +180,7 @@ private struct EmptyRequestsDashboard: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(18)
-        .background(AppSurface.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .surfaceCardBackground()
     }
 }
 
@@ -231,7 +231,7 @@ private struct RequestRow: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(AppSurface.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .surfaceCardBackground()
         .sheet(isPresented: $isReplySheetPresented) {
             ReplySheet(replyText: $replyText) {
                 onAction(.reply, replyText)

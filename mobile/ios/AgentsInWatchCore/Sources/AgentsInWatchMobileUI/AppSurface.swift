@@ -10,28 +10,21 @@ import AppKit
 
 enum AppSurface {
     #if os(iOS)
-    private static let iOSBackgroundTop = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0.07, green: 0.075, blue: 0.09, alpha: 1)
-            : .systemBackground
-    })
-
-    private static let iOSBackgroundBottom = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0.045, green: 0.05, blue: 0.065, alpha: 1)
-            : .secondarySystemBackground
-    })
+    private static let paper = Color(red: 0.984, green: 0.984, blue: 0.976)
+    private static let paperDeep = Color(red: 0.953, green: 0.949, blue: 0.929)
+    private static let border = Color(red: 0.902, green: 0.894, blue: 0.863)
 
     static let background = LinearGradient(
         colors: [
-            iOSBackgroundTop,
-            iOSBackgroundBottom
+            paper,
+            paperDeep
         ],
         startPoint: .top,
         endPoint: .bottom
     )
 
-    static let cardBackground = Color(uiColor: .secondarySystemGroupedBackground)
+    static let cardBackground = Color.white
+    static let cardBorder = border
     #elseif os(macOS)
     static let background = LinearGradient(
         colors: [
@@ -43,6 +36,7 @@ enum AppSurface {
     )
 
     static let cardBackground = Color(nsColor: .controlBackgroundColor)
+    static let cardBorder = Color(nsColor: .separatorColor)
     #else
     static let background = LinearGradient(
         colors: [Color.black, Color.black],
@@ -51,6 +45,7 @@ enum AppSurface {
     )
 
     static let cardBackground = Color.white.opacity(0.08)
+    static let cardBorder = Color.white.opacity(0.12)
     #endif
 }
 
@@ -63,6 +58,23 @@ struct SurfaceCard<Content: View>: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
+        .surfaceCardBackground()
+    }
+}
+
+private struct SurfaceCardBackground: ViewModifier {
+    func body(content: Content) -> some View {
+        content
         .background(AppSurface.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(AppSurface.cardBorder, lineWidth: 1)
+        )
+    }
+}
+
+extension View {
+    func surfaceCardBackground() -> some View {
+        modifier(SurfaceCardBackground())
     }
 }
