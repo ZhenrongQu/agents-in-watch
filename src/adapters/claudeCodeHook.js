@@ -8,6 +8,10 @@ export function translateClaudeCodeHook(payload, options = {}) {
   const sessionId = payload.session_id ?? payload.sessionId ?? "unknown-session";
 
   if (eventName === "PermissionRequest") {
+    if (isAlreadyApprovedPermission(payload)) {
+      return null;
+    }
+
     const toolName = payload.tool_name ?? "tool";
     const command = payload.tool_input?.command;
     const actionText = command ? `run: ${command}` : `use ${toolName}`;
@@ -52,6 +56,26 @@ export function translateClaudeCodeHook(payload, options = {}) {
   }
 
   throw new Error(`unsupported Claude Code hook event: ${eventName}`);
+}
+
+function isAlreadyApprovedPermission(payload) {
+  const candidates = [
+    payload.status,
+    payload.decision,
+    payload.permission_request?.status,
+    payload.permission_request?.decision,
+    payload.permission_request?.decision?.behavior,
+  ];
+
+  return candidates.some((value) => {
+    if (typeof value !== "string") {
+      return false;
+    }
+
+    return ["allow", "allowed", "approve", "approved", "auto-approved", "auto_approved"].includes(
+      value.trim().toLowerCase()
+    );
+  });
 }
 
 function projectNameFromCwd(cwd) {

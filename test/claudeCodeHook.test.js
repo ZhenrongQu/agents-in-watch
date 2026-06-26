@@ -29,6 +29,27 @@ test("translates a PermissionRequest hook into an approval request", () => {
   assert.deepEqual(request.actions, ["allow", "deny", "pause"]);
 });
 
+test("skips auto-approved PermissionRequest hooks", () => {
+  const request = translateClaudeCodeHook(
+    {
+      hook_event_name: "PermissionRequest",
+      session_id: "session-1",
+      cwd: "/Users/me/projects/payments-api",
+      tool_name: "Bash",
+      tool_input: {
+        command: "pnpm test",
+      },
+      permission_request: {
+        status: "approved",
+        reason: "Matched an auto approval rule.",
+      },
+    },
+    { computerName: "work-mac" }
+  );
+
+  assert.equal(request, null);
+});
+
 test("translates a Notification hook into a notification request", () => {
   const request = translateClaudeCodeHook(
     {

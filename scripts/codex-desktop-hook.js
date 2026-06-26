@@ -12,6 +12,10 @@ const computerName = process.env.COMPUTER_NAME ?? "local-computer";
 try {
   const payload = JSON.parse(await readStdin());
   const request = translateCodexDesktopHook(payload, { computerName });
+  if (!request) {
+    process.exit(0);
+  }
+
   const runtimeOptions = readRuntimeOptions(process.env);
   const remoteResponse = await postRequestAndMaybeWait({
     ...runtimeOptions,

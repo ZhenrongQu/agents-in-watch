@@ -8,6 +8,10 @@ export function translateCodexDesktopHook(payload, options = {}) {
   const sessionId = payload.sessionId ?? payload.session_id ?? "unknown-session";
 
   if (eventName === "approval_request" || eventName === "approval-request") {
+    if (isAlreadyApprovedApproval(payload)) {
+      return null;
+    }
+
     const toolName = payload.toolName ?? payload.tool_name ?? "tool";
     const command = payload.command;
     const actionText = typeof command === "string" && command.trim() !== ""
@@ -54,6 +58,26 @@ export function translateCodexDesktopHook(payload, options = {}) {
   }
 
   throw new Error(`unsupported Codex Desktop event: ${eventName}`);
+}
+
+function isAlreadyApprovedApproval(payload) {
+  const candidates = [
+    payload.status,
+    payload.decision,
+    payload.approval?.status,
+    payload.approval?.decision,
+    payload.approval?.decision?.behavior,
+  ];
+
+  return candidates.some((value) => {
+    if (typeof value !== "string") {
+      return false;
+    }
+
+    return ["allow", "allowed", "approve", "approved", "auto-approved", "auto_approved"].includes(
+      value.trim().toLowerCase()
+    );
+  });
 }
 
 function projectNameFromCwd(cwd) {

@@ -27,6 +27,23 @@ test("translates a Codex approval event into an approval request", () => {
   assert.equal(request.riskLevel, "low");
 });
 
+test("skips auto-approved Codex approval events", () => {
+  const request = translateCodexDesktopHook(
+    {
+      event: "approval_request",
+      sessionId: "session-1",
+      cwd: "/Users/me/projects/payments-api",
+      toolName: "shell",
+      command: "npm test",
+      status: "approved",
+      reason: "Matched an auto approval rule.",
+    },
+    { computerName: "work-mac" }
+  );
+
+  assert.equal(request, null);
+});
+
 test("translates a Codex notification event into a notification request", () => {
   const request = translateCodexDesktopHook(
     {
